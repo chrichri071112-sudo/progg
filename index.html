@@ -1,20 +1,21 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="it" translate="no">
 <head>
   <meta charset="UTF-8" />
+  <meta name="google" content="notranslate" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Omni AI - Assistente Universale</title>
   <style>
     :root {
       --bg-dark: #0a0e14;
-      --card-bg: rgba(22, 27, 34, 0.85);
+      --bg-sidebar: #0f172a;
+      --card-bg: #161b22;
       --card-border: rgba(255, 255, 255, 0.1);
-      --accent: #25d366;
-      --accent-glow: rgba(37, 211, 102, 0.25);
+      --accent: #2563eb;
       --pro-gold: #f59e0b;
       --text-main: #f0f6fc;
       --text-sub: #8b949e;
-      --user-bubble: #1f6feb;
+      --user-bubble: #2563eb;
       --ai-bubble: #161b22;
     }
 
@@ -46,6 +47,7 @@
       display: flex;
       flex-direction: column;
       box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      transition: background 0.3s ease;
     }
 
     @media (min-width: 600px) {
@@ -56,13 +58,150 @@
       }
     }
 
-    /* ================= ONBOARDING / LOGIN (STILE SCREENSHOT) ================= */
-    .onboarding-screen {
+    /* ================= BARRA LATERALE A SINISTRA (DRAWER) ================= */
+    .sidebar-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sidebar {
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
+      width: 82%;
+      max-width: 320px;
       height: 100%;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--card-border);
+      z-index: 101;
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      padding: 18px 14px;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .btn-new-chat {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      letter-spacing: 1px;
+      margin: 12px 0 6px;
+    }
+
+    .chat-history-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .history-item {
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.03);
+      font-size: 13px;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-item:hover {
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* Box Abbonamento Sidebar */
+    .sub-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+
+    .sub-box.active-pro {
+      border-color: var(--pro-gold);
+      background: rgba(245, 158, 11, 0.1);
+    }
+
+    .btn-sub-action {
+      width: 100%;
+      padding: 8px;
+      margin-top: 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+    }
+
+    /* Selettore Tema */
+    .theme-presets {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .theme-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid white;
+    }
+
+    /* ================= ONBOARDING / LOGIN ================= */
+    .onboarding-screen {
+      position: absolute;
+      inset: 0;
       z-index: 50;
       background: linear-gradient(180deg, rgba(10,14,20,0.4) 0%, rgba(10,14,20,0.95) 75%),
                   url('https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&auto=format&fit=crop&q=80') center/cover;
@@ -80,9 +219,6 @@
     }
 
     .brand-tag {
-      display: flex;
-      align-items: center;
-      gap: 6px;
       color: #ff7043;
       font-weight: 800;
       font-size: 13px;
@@ -95,7 +231,6 @@
       font-size: 38px;
       line-height: 1.1;
       font-weight: 900;
-      letter-spacing: -0.5px;
       margin-bottom: 14px;
       color: #ffffff;
     }
@@ -107,7 +242,6 @@
       margin-bottom: 24px;
     }
 
-    /* Form & Pulsanti Accesso */
     .btn-google {
       width: 100%;
       padding: 14px;
@@ -123,49 +257,13 @@
       gap: 10px;
       cursor: pointer;
       margin-bottom: 10px;
-      box-shadow: 0 4px 15px rgba(255,255,255,0.15);
     }
 
-    .email-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .email-input {
-      flex: 1;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 12px;
-      padding: 12px 14px;
-      color: white;
-      font-size: 14px;
-      outline: none;
-      backdrop-filter: blur(8px);
-    }
-
-    .btn-email-submit {
-      background: rgba(255,255,255,0.2);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.3);
-      padding: 0 16px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .legal-notice {
-      font-size: 11px;
-      text-align: center;
-      color: #64748b;
-      margin-top: 6px;
-    }
-
-    /* Modal Step (GPS, Notifiche, Abbonamento) */
+    /* Modali Permessi */
     .step-modal {
       position: absolute;
       inset: 0;
-      background: rgba(3, 7, 18, 0.95);
+      background: rgba(3, 7, 18, 0.96);
       backdrop-filter: blur(12px);
       z-index: 60;
       display: none;
@@ -179,56 +277,10 @@
       display: flex;
     }
 
-    .step-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-
-    .step-title {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 8px;
-    }
-
-    .step-desc {
-      font-size: 14px;
-      color: #94a3b8;
-      line-height: 1.5;
-      margin-bottom: 24px;
-    }
-
-    .plan-card {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(22, 27, 34, 0.8));
-      border: 1px solid rgba(245, 158, 11, 0.4);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 18px;
-      text-align: left;
-    }
-
-    .plan-tag {
-      background: var(--pro-gold);
-      color: black;
-      font-size: 10px;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 6px;
-      display: inline-block;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-    }
-
-    .plan-price {
-      font-size: 24px;
-      font-weight: 900;
-      color: white;
-      margin: 4px 0;
-    }
-
     .btn-action-step {
       width: 100%;
       padding: 14px;
-      background: #2563eb;
+      background: var(--accent);
       color: white;
       border: none;
       border-radius: 12px;
@@ -247,11 +299,11 @@
       text-decoration: underline;
     }
 
-    /* ================= INTERFACCIA CHAT PRINCIPALE ================= */
+    /* ================= HEADER & CHAT ================= */
     .chat-header {
       background: rgba(15, 23, 42, 0.95);
       backdrop-filter: blur(10px);
-      padding: 12px 16px;
+      padding: 12px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -259,22 +311,30 @@
       z-index: 10;
     }
 
-    .header-user {
+    .header-left {
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
+    .btn-hamburger {
+      background: none;
+      border: none;
+      color: var(--text-main);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px;
+    }
+
     .user-avatar {
-      width: 40px;
-      height: 40px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #10b981, #065f46);
+      background: var(--accent);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
-      border: 1px solid rgba(255,255,255,0.2);
+      font-size: 17px;
     }
 
     .credits-pill {
@@ -286,7 +346,7 @@
       font-weight: 700;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .credits-pill.pro {
@@ -307,8 +367,8 @@
     .msg-row {
       display: flex;
       flex-direction: column;
-      max-width: 88%;
-      animation: fadeIn 0.3s ease;
+      max-width: 90%;
+      animation: fadeIn 0.25s ease;
     }
 
     @keyframes fadeIn {
@@ -327,9 +387,9 @@
     }
 
     .bubble {
-      padding: 12px 15px;
+      padding: 12px 14px;
       border-radius: 16px;
-      font-size: 14.5px;
+      font-size: 14px;
       line-height: 1.45;
     }
 
@@ -348,14 +408,14 @@
 
     .bubble-time {
       font-size: 10px;
-      color: #64748b;
+      color: var(--text-sub);
       margin-top: 4px;
       align-self: flex-end;
     }
 
-    /* Card Multimediale Dinamica dell'IA */
+    /* CARD MULTIMEDIALI */
     .ai-rich-card {
-      background: #0f172a;
+      background: rgba(15, 23, 42, 0.7);
       border-radius: 14px;
       border: 1px solid var(--card-border);
       overflow: hidden;
@@ -364,7 +424,7 @@
 
     .card-banner {
       width: 100%;
-      height: 150px;
+      height: 145px;
       object-fit: cover;
     }
 
@@ -385,7 +445,7 @@
     }
 
     .card-title {
-      font-size: 16px;
+      font-size: 15.5px;
       font-weight: 700;
       margin-bottom: 4px;
     }
@@ -394,81 +454,48 @@
       font-size: 18px;
       font-weight: 800;
       color: #38bdf8;
-      margin: 6px 0;
+      margin: 4px 0;
     }
 
     .card-text {
       font-size: 13px;
-      color: #94a3b8;
+      color: var(--text-sub);
       line-height: 1.45;
-    }
-
-    .card-subitem {
-      background: rgba(255,255,255,0.04);
-      border-radius: 8px;
-      padding: 8px 10px;
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12.5px;
     }
 
     .card-btn-row {
       display: flex;
-      gap: 8px;
-      padding: 10px 14px;
-      background: rgba(0,0,0,0.25);
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px 12px;
+      background: rgba(0,0,0,0.3);
       border-top: 1px solid var(--card-border);
     }
 
     .card-btn {
       flex: 1;
-      padding: 8px 10px;
+      min-width: 120px;
+      padding: 9px 10px;
       border-radius: 8px;
-      font-size: 12.5px;
-      font-weight: 600;
+      font-size: 12px;
+      font-weight: 700;
       text-align: center;
       cursor: pointer;
       border: none;
       text-decoration: none;
-    }
-
-    .btn-main {
-      background: #2563eb;
-      color: white;
-    }
-
-    .btn-ghost {
-      background: rgba(255,255,255,0.1);
-      color: white;
-    }
-
-    /* Suggerimenti veloci */
-    .quick-chips {
-      padding: 8px 14px;
       display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      scrollbar-width: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
-    .quick-chips::-webkit-scrollbar {
-      display: none;
-    }
+    .btn-main { background: var(--accent); color: white; }
+    .btn-tg { background: #b91c1c; color: white; }
+    .btn-sky { background: #0284c7; color: white; }
+    .btn-voice { background: #059669; color: white; }
+    .btn-ghost { background: rgba(255,255,255,0.1); color: white; }
 
-    .chip-item {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      white-space: nowrap;
-      cursor: pointer;
-      color: #cbd5e1;
-    }
-
-    /* Barra Input */
+    /* Input Footer */
     .chat-input-bar {
       padding: 10px 14px;
       background: #0f172a;
@@ -493,7 +520,7 @@
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      background: #2563eb;
+      background: var(--accent);
       color: white;
       border: none;
       cursor: pointer;
@@ -505,11 +532,9 @@
 
     .typing-box {
       font-size: 12px;
-      color: #64748b;
+      color: var(--text-sub);
       padding: 4px 16px;
       display: none;
-      gap: 6px;
-      align-items: center;
     }
   </style>
 </head>
@@ -517,113 +542,118 @@
 
   <div class="app-viewport">
 
-    <!-- ================= 1. SCHERMATA LOGIN (STILE SCREENSHOT) ================= -->
+    <!-- OVERLAY E SIDEBAR A SINISTRA -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
+    
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div style="font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+          <span>⚡ Omni Concierge</span>
+        </div>
+        <button style="background:none; border:none; color:white; font-size:18px; cursor:pointer;" onclick="toggleSidebar(false)">✕</button>
+      </div>
+
+      <button class="btn-new-chat" onclick="startNewChat()">
+        <span>+</span> Nuova Chat
+      </button>
+
+      <div class="sidebar-section-title">Le tue Chat</div>
+      <div class="chat-history-list">
+        <div class="history-item" onclick="loadChatDemo('🥣 Spesa: Cereali economici')">🥣 Spesa: Cereali economici</div>
+        <div class="history-item" onclick="loadChatDemo('🏛️ Notizie TG Politica')">🏛️ Notizie TG Politica</div>
+        <div class="history-item" onclick="loadChatDemo('🥗 Ricette NutriScan')">🥗 Ricette NutriScan</div>
+      </div>
+
+      <!-- GESTIONE ABBONAMENTO -->
+      <div class="sidebar-section-title">Abbonamento</div>
+      <div class="sub-box" id="sub-management-box">
+        <div style="font-size: 13px; font-weight: bold;" id="sub-status-title">Piano Gratuito</div>
+        <div style="font-size: 11px; color: var(--text-sub); margin-top:2px;" id="sub-status-desc">Limite: 4 messaggi / giorno</div>
+        
+        <button class="btn-sub-action" id="btn-toggle-sub" style="background: var(--pro-gold); color: black;" onclick="toggleSubscription()">
+          Passa a PRO (1° Mese Gratis)
+        </button>
+      </div>
+
+      <!-- PERSONALIZZAZIONE TEMA -->
+      <div class="sidebar-section-title">Tema & Colori</div>
+      <div class="theme-presets">
+        <div class="theme-circle" style="background: #2563eb;" title="Scuro Moderno" onclick="applyTheme('dark')"></div>
+        <div class="theme-circle" style="background: #25d366;" title="WhatsApp Style" onclick="applyTheme('whatsapp')"></div>
+        <div class="theme-circle" style="background: #8b5cf6;" title="Deep Violet" onclick="applyTheme('purple')"></div>
+        <div class="theme-circle" style="background: #00f2fe;" title="Cyber Neon" onclick="applyTheme('cyber')"></div>
+      </div>
+
+      <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
+        <span>Colore personalizzato:</span>
+        <input type="color" id="accent-picker" value="#2563eb" onchange="changeCustomAccent(this.value)" style="cursor: pointer; border: none; background: none; width: 28px; height: 28px;">
+      </div>
+    </aside>
+
+    <!-- ONBOARDING LOGIN -->
     <section class="onboarding-screen" id="screen-login">
       <div class="brand-tag">⚡ OMNI AI CONCIERGE</div>
       <h1 class="hero-title">Chiedi.<br>Trova.<br>Risolvi.</h1>
-      <p class="hero-sub">
-        L'intelligenza che sa tutto: trova i prodotti più economici vicino a te, riassume l'attualità e risponde a qualsiasi tua domanda all'istante con foto e percorsi.
-      </p>
+      <p class="hero-sub">L'intelligenza che risponde a tutto: apre i siti dei TG, legge le notizie a voce, confronta i prezzi vicino a te e trova qualunque informazione.</p>
 
       <button class="btn-google" onclick="goToStep('gps')">
         <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
         Continua con Google
       </button>
-
-      <div class="email-row">
-        <input type="email" id="input-email" class="email-input" placeholder="Oppure inserisci la tua email..." />
-        <button class="btn-email-submit" onclick="goToStep('gps')">Avanti</button>
-      </div>
-
-      <p class="legal-notice">Accedendo accetti i Termini di Servizio e la Privacy Policy.</p>
+      <button class="btn-skip" style="color:white; margin-top:8px;" onclick="goToStep('gps')">Oppure accedi come Ospite</button>
     </section>
 
-    <!-- ================= 2. MODAL PERMESSO GPS ================= -->
+    <!-- STEP GPS -->
     <div class="step-modal" id="modal-gps">
-      <div class="step-icon">📍</div>
-      <h2 class="step-title">Attiva la tua Posizione</h2>
-      <p class="step-desc">
-        Omni usa la geolocalizzazione per trovare supermercati, negozi economici e servizi a pochi passi da te in tempo reale.
-      </p>
-      <button class="btn-action-step" onclick="requestGps()">Consenti Posizione GPS</button>
-      <button class="btn-skip" onclick="goToStep('notifications')">Inserisci posizione manuale</button>
+      <div style="font-size: 48px; margin-bottom: 12px;">📍</div>
+      <h2 style="margin-bottom: 8px;">Attiva il GPS</h2>
+      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Indispensabile per trovare le offerte e i negozi più vicini a te in tempo reale.</p>
+      <button class="btn-action-step" onclick="requestGps()">Consenti Posizione</button>
+      <button class="btn-skip" onclick="goToStep('notifications')">Salta per ora</button>
     </div>
 
-    <!-- ================= 3. MODAL PERMESSO NOTIFICHE ================= -->
+    <!-- STEP NOTIFICHE -->
     <div class="step-modal" id="modal-notifications">
-      <div class="step-icon">🔔</div>
-      <h2 class="step-title">Rimani Aggiornato</h2>
-      <p class="step-desc">
-        Ricevi avvisi quando calano i prezzi dei tuoi prodotti preferiti o quando accadono notizie importanti di politica ed economia.
-      </p>
-      <button class="btn-action-step" onclick="requestNotifications()">Attiva Notifiche</button>
-      <button class="btn-skip" onclick="goToStep('paywall')">Più tardi</button>
+      <div style="font-size: 48px; margin-bottom: 12px;">🔔</div>
+      <h2 style="margin-bottom: 8px;">Attiva Notifiche</h2>
+      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Ricevi aggiornamenti sulle notizie flash e sconti vicino a te.</p>
+      <button class="btn-action-step" onclick="requestNotifications()">Attiva</button>
+      <button class="btn-skip" onclick="goToStep('chat')">Più tardi</button>
     </div>
 
-    <!-- ================= 4. MODAL ABBONAMENTO OMNI PRO ================= -->
-    <div class="step-modal" id="modal-paywall">
-      <div class="step-icon">👑</div>
-      <h2 class="step-title">Sblocca Omni Ultra</h2>
-      <p class="step-desc">Senza limiti di richieste, modelli di intelligenza superiore e risposte ultra-dettagliate.</p>
-
-      <div class="plan-card">
-        <span class="plan-tag">Offerta Lancio Esclusiva</span>
-        <div class="plan-price">1,00 € <span style="font-size:14px; color:#cbd5e1; font-weight:normal;">/ mese</span></div>
-        <div style="color: #4ade80; font-weight: 700; font-size: 13px; margin-bottom: 6px;">
-          ✓ 1° MESE COMPLETAMENTE GRATUITO
-        </div>
-        <div style="font-size: 12px; color: #94a3b8;">
-          Puoi disdire in ogni momento con 1 solo click.
-        </div>
-      </div>
-
-      <button class="btn-action-step" style="background: var(--pro-gold); color: black;" onclick="activatePlan(true)">
-        Inizia 30 giorni Gratis
-      </button>
-
-      <button class="btn-skip" onclick="activatePlan(false)">
-        Continua gratis (4 messaggi al giorno)
-      </button>
-    </div>
-
-    <!-- ================= 5. INTERFACCIA CHAT PRINCIPALE ================= -->
+    <!-- HEADER PRINCIPALE -->
     <header class="chat-header">
-      <div class="header-user">
+      <div class="header-left">
+        <button class="btn-hamburger" onclick="toggleSidebar(true)">☰</button>
         <div class="user-avatar">⚡</div>
         <div>
-          <div style="font-size: 14.5px; font-weight: 700;">Omni Concierge</div>
+          <div style="font-size: 14.5px; font-weight: 700;">Omni AI</div>
           <div style="font-size: 11px; color: #38bdf8;" id="header-loc">📍 Roma Centro</div>
         </div>
       </div>
-      <div class="credits-pill" id="credits-badge">
+      <div class="credits-pill" id="credits-badge" onclick="toggleSidebar(true)">
         ✨ <span id="credits-count">4/4 messaggi</span>
       </div>
     </header>
 
+    <!-- AREA CHAT SCORREVOLE -->
     <main class="chat-scroll" id="chat">
       <div class="msg-row ai">
         <div class="bubble ai">
-          Ciao! Sono pronto ad aiutarti. 🧠<br><br>
-          Puoi chiedermi <b>qualsiasi cosa</b>: trovare un articolo al minor prezzo vicino a te, cosa accade nel mondo, creare una ricetta, spiegarti la scienza o programmare un viaggio!
+          Ciao! Sono il tuo assistente tuttofare. 🧠<br><br>
+          Chiedimi notizie (ti aprirò i siti dei <b>TG ufficiali</b> e posso leggertele con il <b>riassunto vocale</b>), prezzi di prodotti vicino a te o qualsiasi altra informazione!
         </div>
         <span class="bubble-time">Adesso</span>
       </div>
     </main>
 
     <div class="typing-box" id="typing-box">
-      <span>Omni sta analizzando e consultando le fonti in tempo reale...</span>
+      <span>Omni sta elaborando la risposta in tempo reale...</span>
     </div>
 
-    <!-- Chips di esempio rapido -->
-    <div class="quick-chips">
-      <div class="chip-item" onclick="sendPrompt('Cereali a prezzo basso vicino a me')">🥣 Cereali economici</div>
-      <div class="chip-item" onclick="sendPrompt('Cosa succede oggi nella politica italiana?')">🏛️ Attualità politica</div>
-      <div class="chip-item" onclick="sendPrompt('Idea cena proteica e veloce con calorie')">🥗 Ricetta sana</div>
-      <div class="chip-item" onclick="sendPrompt('Spiegami come funziona la fusione nucleare')">🔬 Spiegazione scientifica</div>
-    </div>
-
+    <!-- BARRA INPUT -->
     <footer class="chat-input-bar">
-      <input type="text" id="user-input" class="input-field" placeholder="Chiedi qualunque cosa..." onkeydown="onKey(event)" />
+      <input type="text" id="user-input" class="input-field" placeholder="Chiedi notizie, spesa, o qualunque cosa..." onkeydown="onKey(event)" />
       <button class="btn-send-circle" onclick="submitMessage()">➤</button>
     </footer>
 
@@ -634,24 +664,150 @@
     let isPro = false;
     let dailyCredits = 4;
     let userCity = "Roma Centro";
+    let isSpeaking = false;
 
-    // Navigazione Step Onboarding
+    // Gestione Sidebar
+    function toggleSidebar(open) {
+      document.getElementById('sidebar').classList.toggle('open', open);
+      document.getElementById('sidebar-overlay').classList.toggle('active', open);
+    }
+
+    function startNewChat() {
+      const chat = document.getElementById('chat');
+      chat.innerHTML = `
+        <div class="msg-row ai">
+          <div class="bubble ai">Nuova chat avviata! Cosa vorresti sapere o trovare oggi?</div>
+          <span class="bubble-time">${getCurrentHour()}</span>
+        </div>
+      `;
+      toggleSidebar(false);
+    }
+
+    function loadChatDemo(title) {
+      toggleSidebar(false);
+      if (title.includes('Cereali')) {
+        document.getElementById('user-input').value = "Cereali per la mattina a basso prezzo";
+      } else if (title.includes('Politica')) {
+        document.getElementById('user-input').value = "Cosa sta succedendo nella politica italiana?";
+      } else {
+        document.getElementById('user-input').value = "Consigliami una ricetta sana";
+      }
+      submitMessage();
+    }
+
+    // GESTIONE ABBONAMENTO (COMPRA E FERMA)
+    function toggleSubscription() {
+      if (!isPro) {
+        // COMPRARE L'ABBONAMENTO (1° Mese Gratis)
+        isPro = true;
+        updateSubscriptionUI();
+        alert("🎉 Congratulazioni! Hai attivato Omni PRO. Il primo mese è GRATUITO, poi 1€/mese. Ora hai messaggi illimitati!");
+      } else {
+        // FERMARE / DISDIRE L'ABBONAMENTO
+        if (confirm("Vuoi davvero fermare l'abbonamento Omni PRO? Tornerai al limite di 4 messaggi al giorno senza costi aggiuntivi.")) {
+          isPro = false;
+          dailyCredits = 4;
+          updateSubscriptionUI();
+          alert("Abbonamento fermato con successo. Non ti verrà addebitato alcun costo.");
+        }
+      }
+    }
+
+    function updateSubscriptionUI() {
+      const title = document.getElementById('sub-status-title');
+      const desc = document.getElementById('sub-status-desc');
+      const btn = document.getElementById('btn-toggle-sub');
+      const box = document.getElementById('sub-management-box');
+      const countBadge = document.getElementById('credits-count');
+      const pill = document.getElementById('credits-badge');
+
+      if (isPro) {
+        title.innerText = "👑 Piano PRO Attivo";
+        desc.innerText = "1,00 € / mese (1° mese GRATIS)";
+        btn.innerText = "Ferma / Disdici Abbonamento";
+        btn.style.background = "#ef4444";
+        btn.style.color = "white";
+        box.classList.add('active-pro');
+        countBadge.innerText = "👑 PRO Illimitato";
+        pill.classList.add('pro');
+      } else {
+        title.innerText = "Piano Gratuito";
+        desc.innerText = "Limite: 4 messaggi / giorno";
+        btn.innerText = "Passa a PRO (1° Mese Gratis)";
+        btn.style.background = "var(--pro-gold)";
+        btn.style.color = "black";
+        box.classList.remove('active-pro');
+        countBadge.innerText = `${dailyCredits}/4 messaggi`;
+        pill.classList.remove('pro');
+      }
+    }
+
+    // GESTIONE TEMI & COLORI
+    function applyTheme(name) {
+      const root = document.documentElement;
+      if (name === 'dark') {
+        root.style.setProperty('--bg-dark', '#0a0e14');
+        root.style.setProperty('--accent', '#2563eb');
+        root.style.setProperty('--user-bubble', '#2563eb');
+        root.style.setProperty('--ai-bubble', '#161b22');
+      } else if (name === 'whatsapp') {
+        root.style.setProperty('--bg-dark', '#0b141a');
+        root.style.setProperty('--accent', '#00a884');
+        root.style.setProperty('--user-bubble', '#005c4b');
+        root.style.setProperty('--ai-bubble', '#202c33');
+      } else if (name === 'purple') {
+        root.style.setProperty('--bg-dark', '#0f0a1c');
+        root.style.setProperty('--accent', '#8b5cf6');
+        root.style.setProperty('--user-bubble', '#7c3aed');
+        root.style.setProperty('--ai-bubble', '#1e1633');
+      } else if (name === 'cyber') {
+        root.style.setProperty('--bg-dark', '#030712');
+        root.style.setProperty('--accent', '#00f2fe');
+        root.style.setProperty('--user-bubble', '#0891b2');
+        root.style.setProperty('--ai-bubble', '#0e1726');
+      }
+    }
+
+    function changeCustomAccent(color) {
+      document.documentElement.style.setProperty('--accent', color);
+      document.documentElement.style.setProperty('--user-bubble', color);
+    }
+
+    // SINTESI VOCALE REALE IN ITALIANO
+    function playVoiceSummary(textToSpeak) {
+      if (!('speechSynthesis' in window)) {
+        alert("La sintesi vocale non è supportata dal tuo browser.");
+        return;
+      }
+
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        isSpeaking = false;
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.lang = 'it-IT';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => { isSpeaking = true; };
+      utterance.onend = () => { isSpeaking = false; };
+      utterance.onerror = () => { isSpeaking = false; };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // ONBOARDING GPS & NOTIFICHE
     function goToStep(step) {
       document.getElementById('screen-login').classList.add('hidden');
       document.querySelectorAll('.step-modal').forEach(m => m.classList.remove('active'));
 
-      if (step === 'gps') {
-        document.getElementById('modal-gps').classList.add('active');
-      } else if (step === 'notifications') {
-        document.getElementById('modal-notifications').classList.add('active');
-      } else if (step === 'paywall') {
-        document.getElementById('modal-paywall').classList.add('active');
-      } else if (step === 'chat') {
-        // Accesso completo alla chat
-      }
+      if (step === 'gps') document.getElementById('modal-gps').classList.add('active');
+      else if (step === 'notifications') document.getElementById('modal-notifications').classList.add('active');
     }
 
-    // 1. Richiesta GPS reale del browser
     function requestGps() {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
@@ -660,51 +816,21 @@
             document.getElementById('header-loc').innerText = "📍 " + userCity;
             goToStep('notifications');
           },
-          (err) => {
-            console.log("GPS negato o non supportato");
-            goToStep('notifications');
-          }
+          () => { goToStep('notifications'); }
         );
       } else {
         goToStep('notifications');
       }
     }
 
-    // 2. Richiesta Notifiche Push
     function requestNotifications() {
-      if ("Notification" in window) {
-        Notification.requestPermission().then(() => {
-          goToStep('paywall');
-        });
-      } else {
-        goToStep('paywall');
-      }
+      if ("Notification" in window) Notification.requestPermission();
+      goToStep('chat');
     }
 
-    // 3. Attivazione Abbonamento o Continuazione Free
-    function activatePlan(proChoice) {
-      isPro = proChoice;
-      const badge = document.getElementById('credits-badge');
-      const count = document.getElementById('credits-count');
-
-      if (isPro) {
-        badge.classList.add('pro');
-        count.innerText = "👑 PRO Illimitato";
-      } else {
-        count.innerText = `${dailyCredits}/4 messaggi gratuiti`;
-      }
-
-      document.querySelectorAll('.step-modal').forEach(m => m.classList.remove('active'));
-    }
-
-    // Gestione Invio Messaggi
+    // INVIO MESSAGGI
     function onKey(e) {
       if (e.key === 'Enter') submitMessage();
-    }
-
-    function sendPrompt(text) {
-      document.getElementById('user-input').value = text;
-      submitMessage();
     }
 
     function submitMessage() {
@@ -712,136 +838,125 @@
       const text = input.value.trim();
       if (!text) return;
 
-      // Verifica crediti per piano gratuito
       if (!isPro && dailyCredits <= 0) {
-        goToStep('paywall');
-        alert("Hai esaurito i tuoi 4 messaggi gratuiti per oggi! Attiva Omni Pro (1° mese gratis) per continuare.");
+        toggleSidebar(true);
+        alert("Hai terminato i 4 messaggi giornalieri! Attiva Omni PRO (1° mese gratis) nella barra laterale per continuare.");
         return;
       }
 
-      // Decrementa crediti se free
       if (!isPro) {
         dailyCredits--;
         document.getElementById('credits-count').innerText = `${dailyCredits}/4 messaggi`;
       }
 
-      // Stampa messaggio utente
       appendUserMsg(text);
       input.value = "";
 
-      // Mostra loader
       const typing = document.getElementById('typing-box');
-      typing.style.display = 'flex';
+      typing.style.display = 'block';
       const chat = document.getElementById('chat');
       chat.scrollTop = chat.scrollHeight;
 
-      // Generatore Intelligente Aperto a TUTTO
       setTimeout(() => {
         typing.style.display = 'none';
-        processUniversalAI(text);
-      }, 1300);
+        generateSmartResponse(text);
+      }, 1200);
     }
 
     function appendUserMsg(text) {
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.className = 'msg-row user';
-      row.innerHTML = `
-        <div class="bubble user">${text}</div>
-        <span class="bubble-time">${getCurrentHour()}</span>
-      `;
+      row.innerHTML = `<div class="bubble user">${text}</div><span class="bubble-time">${getCurrentHour()}</span>`;
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
 
-    // ================= MOTORE INTELLIGENTE APERTO A QUALUNQUE DOMANDA =================
-    function processUniversalAI(query) {
+    // GENERATORE INTELLIGENTE CON TG E VOCE REALE
+    function generateSmartResponse(query) {
       const chat = document.getElementById('chat');
       const q = query.toLowerCase();
       let htmlCard = "";
 
-      // 1. INTENTO: Spesa / Prodotti / Offerte / Negozi
-      if (q.includes('prezzo') || q.includes('cereali') || q.includes('comprare') || q.includes('costa') || q.includes('supermercato') || q.includes('negozio')) {
+      // NOTIZIE / POLITICA (Apre siti dei TG ufficiali e legge a voce)
+      if (q.includes('politica') || q.includes('notizie') || q.includes('tg') || q.includes('governo') || q.includes('mondo') || q.includes('guerra')) {
+        const vocaleText = "Ecco le ultime notizie: via libera parlamentare per la nuova legge di bilancio con conferme su cuneo fiscale e lavoro. Puoi consultare i dettagli completi sui siti dei telegiornali qui sotto.";
+        
         htmlCard = `
-          Ho scansionato i negozi e volantini attivi vicino a te (${userCity}):
+          Ecco il riassunto dell'ultima ora con i canali TG ufficiali:
           <div class="ai-rich-card">
-            <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=600&auto=format&fit=crop&q=80" class="card-banner" />
+            <img src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Notizie TG" />
             <div class="card-body">
-              <span class="badge-category">Miglior Offerta Locale</span>
+              <span class="badge-category" style="color:#ef4444; background:rgba(239,68,68,0.15)">Edizione Straordinaria TG</span>
+              <div class="card-title">Aggiornamento Politica ed Economia</div>
+              <div class="card-text">
+                • <b>Manovra di bilancio:</b> avanzamento dei provvedimenti per giovani e lavoratori.<br>
+                • <b>Politica estera:</b> incontri diplomatici e aggiornamenti in tempo reale.<br>
+                • <b>Fonti verificate:</b> Sky TG24, RaiNews, TGCOM24 e ANSA.
+              </div>
+            </div>
+
+            <div class="card-btn-row">
+              <button class="card-btn btn-voice" onclick="playVoiceSummary('${vocaleText}')">
+                🔊 Ascolta Riassunto Vocale
+              </button>
+              <a href="https://tg24.sky.it/" target="_blank" class="card-btn btn-sky">
+                📺 Sky TG24
+              </a>
+              <a href="https://www.rainews.it/" target="_blank" class="card-btn btn-tg">
+                🔴 Rai News 24
+              </a>
+              <a href="https://www.tgcom24.mediaset.it/" target="_blank" class="card-btn btn-ghost">
+                🌐 TGCOM24
+              </a>
+            </div>
+          </div>
+        `;
+      }
+      // SPESA / PRODOTTI / CEREALI (Apre Google Maps reale)
+      else if (q.includes('cereali') || q.includes('prezzo') || q.includes('spesa') || q.includes('comprare') || q.includes('supermercato')) {
+        htmlCard = `
+          Ho scansionato le offerte nei punti vendita vicino a te (${userCity}):
+          <div class="ai-rich-card">
+            <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Cereali" />
+            <div class="card-body">
+              <span class="badge-category">Miglior Prezzo a 320m</span>
               <div class="card-title">Choco Crunch Gran Cereale 375g</div>
               <div class="card-highlight">1,49 € <span style="font-size:12px; color:#64748b; text-decoration:line-through;">2,39 €</span></div>
-              <div class="card-text">Sconto del 38% applicato automaticamente al carrello.</div>
-              
-              <div class="card-subitem">
-                🏪 <b>Conad City</b> • a 320m (4 min a piedi) • Aperto fino alle 20:30
-              </div>
+              <div class="card-text">Disponibile presso <b>Conad City</b> (Via Nazionale). Aperto fino alle 20:30.</div>
             </div>
             <div class="card-btn-row">
-              <a href="https://maps.google.com" target="_blank" class="card-btn btn-main">📍 Portami qui</a>
-              <button class="card-btn btn-ghost" onclick="alert('Alternative più salutari o sottomarca caricate!')">🔄 Alternative</button>
+              <a href="https://www.google.com/maps/search/supermercato+piu+vicino/" target="_blank" class="card-btn btn-main">
+                📍 Portami al Negozio
+              </a>
+              <button class="card-btn btn-voice" onclick="playVoiceSummary('I cereali al miglior prezzo costano un euro e 49 al Conad City a circa trecento metri da te.')">
+                🔊 Ascolta Prezzo
+              </button>
             </div>
           </div>
         `;
       }
-      // 2. INTENTO: Notizie / Politica / Attualità
-      else if (q.includes('politica') || q.includes('governo') || q.includes('notizie') || q.includes('succedendo') || q.includes('guerra') || q.includes('mondo')) {
-        htmlCard = `
-          Ecco il dossier sintetico verificato con le ultime notizie:
-          <div class="ai-rich-card">
-            <img src="https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=600&auto=format&fit=crop&q=80" class="card-banner" />
-            <div class="card-body">
-              <span class="badge-category" style="color:#60a5fa; background:rgba(96,165,250,0.15)">Dossier Politica Flash</span>
-              <div class="card-title">Aggiornamento Parlamentare e Manovra</div>
-              <div class="card-text" style="margin-top:6px;">
-                • <b>Fisco:</b> confermata la rimodulazione degli scaglioni per i dipendenti.<br>
-                • <b>Sanità:</b> presentati gli emendamenti sui fondi ospedalieri.<br>
-                • <b>Fonti:</b> ANSA, Sole 24 Ore, Reuters.
-              </div>
-            </div>
-            <div class="card-btn-row">
-              <button class="card-btn btn-main" onclick="alert('Generazione riassunto vocale...')">🎙️ Ascolta riassunto (30s)</button>
-              <button class="card-btn btn-ghost" onclick="alert('Aperte fonti originali.')">📰 Leggi articoli</button>
-            </div>
-          </div>
-        `;
-      }
-      // 3. INTENTO: Cibo / Ricette / Dieta (Come l'app NutriScan nello screenshot)
-      else if (q.includes('ricetta') || q.includes('cena') || q.includes('mangiare') || q.includes('calorie') || q.includes('dieta') || q.includes('cucinare')) {
-        htmlCard = `
-          Ecco una proposta ideale calcolata in base ai nutrienti:
-          <div class="ai-rich-card">
-            <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80" class="card-banner" />
-            <div class="card-body">
-              <span class="badge-category" style="color:#fbbf24; background:rgba(251,191,36,0.15)">NutriScan & Cucina</span>
-              <div class="card-title">Bowl Proteica di Salmone, Avocado e Riso Venere</div>
-              <div class="card-highlight" style="color:#4ade80;">480 kcal • 34g Proteine</div>
-              <div class="card-text">Tempo di preparazione stimato: 12 minuti. Povero di grassi saturi e ricco di Omega-3.</div>
-            </div>
-            <div class="card-btn-row">
-              <button class="card-btn btn-main" onclick="alert('Ingredienti aggiunti alla tua lista della spesa!')">🛒 Lista Ingredienti</button>
-              <button class="card-btn btn-ghost" onclick="alert('Passaggi ricetta mostrati!')">👨‍🍳 Procedimento</button>
-            </div>
-          </div>
-        `;
-      }
-      // 4. INTENTO: Qualsiasi altra spiegazione aperta (scienza, tecnologia, cultura, aiuto)
+      // QUALSIASI ALTRA RICHIESTA
       else {
+        const genericVoice = `Risposta per ${query}: Ho elaborato la risposta dettagliata con i punti chiave a schermo.`;
         htmlCard = `
-          Ecco l'analisi completa per la tua richiesta: <b>"${query}"</b>:
+          Ecco l'analisi per <b>"${query}"</b>:
           <div class="ai-rich-card">
             <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80" class="card-banner" />
             <div class="card-body">
-              <span class="badge-category">Risposta Intelligente</span>
-              <div class="card-title">Panoramica & Punti Chiave</div>
-              <div class="card-text" style="margin-top:6px;">
-                1. <b>Concetto Fondamentale:</b> Risolto e sintetizzato secondo le conoscenze scientifiche e pratiche più recenti.<br>
-                2. <b>Applicazione Pratica:</b> Puoi applicare questo principio immediatamente nella tua attività o studio.<br>
-                3. <b>Suggerimento AI:</b> Vuoi approfondire con un esempio pratico o preferisci una mappa concettuale?
+              <span class="badge-category">Omni Universale</span>
+              <div class="card-title">Risultati e Spiegazione</div>
+              <div class="card-text">
+                Informazione elaborata con successo secondo i dati più recenti. Puoi approfondire toccando i comandi qui sotto.
               </div>
             </div>
             <div class="card-btn-row">
-              <button class="card-btn btn-main" onclick="alert('Approfondimento in corso...')">💡 Fai un esempio</button>
-              <button class="card-btn btn-ghost" onclick="alert('Condiviso con successo!')">📤 Condividi</button>
+              <button class="card-btn btn-voice" onclick="playVoiceSummary('${genericVoice}')">
+                🔊 Ascolta
+              </button>
+              <button class="card-btn btn-ghost" onclick="alert('Approfondimento richiesto!')">
+                🔍 Approfondisci
+              </button>
             </div>
           </div>
         `;
@@ -849,10 +964,7 @@
 
       const row = document.createElement('div');
       row.className = 'msg-row ai';
-      row.innerHTML = `
-        <div class="bubble ai">${htmlCard}</div>
-        <span class="bubble-time">${getCurrentHour()}</span>
-      `;
+      row.innerHTML = `<div class="bubble ai">${htmlCard}</div><span class="bubble-time">${getCurrentHour()}</span>`;
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
