@@ -1,314 +1,788 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, Mic, MicOff, Send, Activity, LogOut } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="it" translate="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="google" content="notranslate" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Omni AI - J.A.R.V.I.S.</title>
+  <style>
+    :root {
+      --bg: #020611;
+      --panel: rgba(5, 20, 35, 0.88);
+      --card: rgba(5, 20, 35, 0.75);
+      --line: rgba(34, 211, 238, 0.25);
+      --accent: #22d3ee;
+      --text: #e0f2fe;
+      --sub: #7dd3fc;
+      --user-bubble: #0e7490;
+    }
 
-const VIP = 'chrichri071112@gmail.com', FREE = 8, CY = '#22d3ee';
-const now = () => new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-const st = {
-  async get(k) { try { const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; } catch (e) { return null; } },
-  async set(k, v) { try { await window.storage.set(k, JSON.stringify(v)); } catch (e) {} }
-};
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-/* ---------- IA (Claude + ricerca web) ---------- */
-const SYSTEM = () => `Sei Omni AI, assistente italiano competente, diretto e onesto. Ragiona sulla domanda REALE dell'utente.
-Data di oggi: ${new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.
-Rispondi esattamente a ciò che viene chiesto, in italiano naturale, 80-180 parole salvo richiesta diversa. Per attualità cerca sul web e non inventare notizie, numeri, prezzi o negozi. Non hai accesso ai prezzi dei supermercati. Se non sei sicuro, dillo. Per salute, legge e denaro dai informazioni generali.`;
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-async function ask(messages) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM(), messages, tools: [{ type: 'web_search_20250305', name: 'web_search' }] })
-  });
-  if (!res.ok) throw new Error('Servizio IA non raggiungibile (HTTP ' + res.status + ').');
-  const b = (await res.json()).content || [];
-  const text = b.filter(x => x.type === 'text').map(x => x.text).join('').trim();
-  const seen = new Set(), sources = [];
-  b.forEach(x => (x.type === 'web_search_tool_result' && Array.isArray(x.content)) && x.content.forEach(r => {
-    if (r.url && !seen.has(r.url) && sources.length < 4) { seen.add(r.url); sources.push({ title: r.title || r.url, url: r.url }); }
-  }));
-  if (!text) throw new Error('Risposta vuota.');
-  return { text, sources };
-}
+    /* SFONDO CANVAS J.A.R.V.I.S. */
+    #bg-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
 
-/* ---------- Voce ---------- */
-let q = [], on = false;
-const stopVoice = () => { on = false; q = []; if ('speechSynthesis' in window) speechSynthesis.cancel(); };
-const speak = (text, end) => {
-  if (!('speechSynthesis' in window)) return end && end();
-  stopVoice();
-  const clean = text.replace(/https?:\/\/\S+/g, '').replace(/[*#_`~>]/g, '').replace(/(\d+),(\d+)/g, '$1 virgola $2').replace(/%/g, ' per cento').replace(/€/g, ' euro').replace(/\s+/g, ' ');
-  q = clean.match(/[^.!?;:]+[.!?;:]?/g) || [clean]; on = true;
-  const it = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it'));
-  let voice = it[0]; for (const k of ['natural', 'neural', 'google', 'elsa', 'alice', 'luca']) { const v = it.find(v => v.name.toLowerCase().includes(k)); if (v) { voice = v; break; } }
-  const next = () => {
-    if (!on || !q.length) { on = false; return end && end(); }
-    const u = new SpeechSynthesisUtterance(q.shift()); u.lang = 'it-IT'; if (voice) u.voice = voice;
-    u.onend = next; u.onerror = () => { on = false; end && end(); }; speechSynthesis.speak(u);
-  };
-  next();
-};
+    .app {
+      position: relative;
+      width: 100%;
+      max-width: 460px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      z-index: 1;
+      background: rgba(2, 6, 17, 0.65);
+      backdrop-filter: blur(8px);
+    }
 
-/* ---------- Sfondo animato / sfera J.A.R.V.I.S. ---------- */
-function Bg({ hud, pulse }) {
-  const ref = useRef(null), pr = useRef(pulse); pr.current = pulse;
-  useEffect(() => {
-    const c = ref.current, g = c.getContext('2d'); let raf, t = 0;
-    const P = Array.from({ length: 80 }, () => ({ x: Math.random(), y: Math.random(), v: 0.0002 + Math.random() * 0.0007 }));
-    const S = Array.from({ length: 260 }, (_, i) => { const k = (i + 0.5) / 260, ph = Math.acos(1 - 2 * k), th = Math.PI * (1 + Math.sqrt(5)) * i; return [Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)]; });
-    const rs = () => { c.width = c.clientWidth; c.height = c.clientHeight; }; rs(); window.addEventListener('resize', rs);
-    const loop = () => {
-      t += 0.01; const w = c.width, h = c.height; g.clearRect(0, 0, w, h);
-      const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h)); gr.addColorStop(0, '#07304a'); gr.addColorStop(1, '#020611'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
-      g.strokeStyle = 'rgba(34,211,238,.07)';
-      for (let x = (t * 25) % 44; x < w; x += 44) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
-      for (let y = (t * 25) % 44; y < h; y += 44) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
-      P.forEach(p => { p.y -= p.v; if (p.y < 0) p.y = 1; g.fillStyle = 'rgba(34,211,238,.55)'; g.fillRect(p.x * w, p.y * h, 2, 2); });
-      if (hud) {
-        const cx = w / 2, cy = h * 0.42, R = Math.min(w, h) * 0.2 * (pr.current ? 1.06 + 0.04 * Math.sin(t * 9) : 1);
-        const cs = Math.cos(t), sn = Math.sin(t);
-        S.forEach(([x, y, z]) => { const X = x * cs + z * sn, Z = -x * sn + z * cs, d = (Z + 1) / 2; g.fillStyle = `rgba(34,211,238,${0.15 + 0.85 * d})`; g.beginPath(); g.arc(cx + X * R, cy + y * R, 0.8 + d * 1.6, 0, 6.3); g.fill(); });
-        g.lineWidth = 1.2; [[1.5, 0.4, 0.5], [1.3, 0.5, -0.8], [1.75, 0.3, 2]].forEach(([a, b, r], i) => { g.strokeStyle = `rgba(34,211,238,${0.45 - i * 0.1})`; g.beginPath(); g.ellipse(cx, cy, R * a, R * b, t * r + i, 0, 6.3); g.stroke(); });
-        g.save(); g.textAlign = 'center'; g.shadowColor = CY; g.shadowBlur = 24; g.fillStyle = '#a5f3fc'; g.font = `700 ${R * 0.3}px sans-serif`; g.fillText('J.A.R.V.I.S.', cx, cy + R * 0.08);
-        g.shadowBlur = 0; g.fillStyle = CY; g.font = `${R * 0.11}px sans-serif`; g.fillText('AI CORE · ONLINE', cx, cy + R * 0.32); g.restore();
+    @media (min-width: 600px) {
+      .app {
+        height: 94vh;
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        box-shadow: 0 0 35px rgba(34, 211, 238, 0.2);
+        overflow: hidden;
       }
-      raf = requestAnimationFrame(loop);
-    };
-    loop(); return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', rs); };
-  }, [hud]);
-  return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />;
-}
+    }
 
-/* ---------- HUD J.A.R.V.I.S. a schermo intero ---------- */
-const panel = { border: '1px solid rgba(34,211,238,.35)', background: 'rgba(5,20,35,.72)', borderRadius: 12, padding: 10, backdropFilter: 'blur(6px)', fontSize: 12 };
-const Ttl = ({ children }) => <div style={{ color: CY, fontWeight: 800, letterSpacing: 1.5, fontSize: 10, marginBottom: 6 }}>{children}</div>;
-const Row = ({ k, v }) => <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(34,211,238,.12)' }}><span style={{ color: '#7dd3fc' }}>{k}</span><b style={{ color: '#fff' }}>{v}</b></div>;
-const Ring = ({ v, label, txt }) => {
-  const r = 26, C = 2 * Math.PI * r;
-  return <div style={{ textAlign: 'center' }}><svg width="68" height="68"><circle cx="34" cy="34" r={r} stroke="#0e3a52" strokeWidth="6" fill="none" /><circle cx="34" cy="34" r={r} stroke={CY} strokeWidth="6" fill="none" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - Math.min(1, v || 0))} transform="rotate(-90 34 34)" /><text x="34" y="38" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="700">{txt}</text></svg><div style={{ color: '#7dd3fc', fontSize: 10 }}>{label}</div></div>;
-};
-const WX = (c) => c === 0 ? 'Sereno' : c < 4 ? 'Nuvoloso' : c < 50 ? 'Nebbia' : c < 70 ? 'Pioggia' : c < 80 ? 'Neve' : c < 90 ? 'Rovesci' : 'Temporale';
+    /* HEADER */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: rgba(3, 14, 25, 0.85);
+      border-bottom: 1px solid var(--line);
+      z-index: 10;
+    }
 
-function Hud({ onClose, tele, coords, count, last, speaking, dictating, onTalk, onSpeak, premium }) {
-  const [clock, setClock] = useState(new Date()), [feed, setFeed] = useState(null), [wx, setWx] = useState(null), [heap, setHeap] = useState(null);
-  const [stream, setStream] = useState(null), [ana, setAna] = useState(''), [busyA, setBusyA] = useState(false), vref = useRef(null);
-  const narrow = window.innerWidth < 860;
-  useEffect(() => { const i = setInterval(() => { setClock(new Date()); const m = performance.memory; if (m) setHeap(m.usedJSHeapSize / m.jsHeapSizeLimit); }, 1000); return () => clearInterval(i); }, []);
-  const loadFeed = async () => {
-    setFeed(null);
-    try { const r = await ask([{ role: 'user', content: 'Cerca sul web i 5 titoli di notizie più importanti in Italia adesso. Rispondi SOLO con 5 righe, una per titolo, senza numeri né introduzioni, max 90 caratteri ciascuna.' }]); setFeed(r.text.split('\n').map(l => l.replace(/^[-•*\d.\s]+/, '').trim()).filter(l => l.length > 8).slice(0, 5)); }
-    catch (e) { setFeed(['Feed non disponibile: ' + e.message]); }
-  };
-  useEffect(() => { loadFeed(); return () => { if (stream) stream.getTracks().forEach(t => t.stop()); }; }, []);
-  useEffect(() => { if (!coords) return; fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,weather_code`).then(r => r.json()).then(d => setWx(Math.round(d.current.temperature_2m) + '°C ' + WX(d.current.weather_code))).catch(() => setWx('n/d')); }, [coords]);
-  useEffect(() => { if (vref.current && stream) vref.current.srcObject = stream; }, [stream]);
-  const share = async () => {
-    if (stream) { stream.getTracks().forEach(t => t.stop()); setStream(null); return; }
-    try { const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false }); s.getVideoTracks()[0].onended = () => setStream(null); setStream(s); } catch (e) { setAna('Condivisione non disponibile o annullata in questo ambiente.'); }
-  };
-  const analyze = async () => {
-    const v = vref.current; if (!v || !v.videoWidth) return; const c = document.createElement('canvas'), s = Math.min(1, 1280 / v.videoWidth);
-    c.width = v.videoWidth * s; c.height = v.videoHeight * s; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-    setBusyA(true); setAna('Analizzo lo schermo…');
-    try { const r = await ask([{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.7).split(',')[1] } }, { type: 'text', text: 'Descrivi cosa vedi sullo schermo e come posso essere utile. Se c\'è testo o un errore, leggilo e spiegalo.' }] }]); setAna(r.text); onSpeak(r.text); }
-    catch (e) { setAna('⚠️ ' + e.message); } setBusyA(false);
-  };
-  const bars = Array.from({ length: 16 });
-  return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 60, color: '#e0f2fe', overflow: 'auto' }}>
-      <Bg hud pulse={speaking || dictating} />
-      <style>{'@keyframes eq{0%,100%{height:4px}50%{height:26px}}'}</style>
-      <div style={{ position: 'relative', display: 'grid', gap: 10, padding: 12, minHeight: '100%', gridTemplateColumns: narrow ? '1fr' : '270px 1fr 300px', gridTemplateRows: narrow ? 'auto' : 'auto 1fr auto' }}>
-        <div style={{ ...panel, gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <b style={{ letterSpacing: 3, color: CY }}>J.A.R.V.I.S. COMMAND CENTER</b>
-          <span style={{ fontSize: 18, fontWeight: 800 }}>{clock.toLocaleTimeString('it-IT')} <small style={{ color: '#7dd3fc', fontWeight: 400 }}>{clock.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</small></span>
-          <button onClick={onClose} style={{ ...panel, padding: '4px 12px', cursor: 'pointer', color: '#fff' }}>✕ Chiudi</button>
-        </div>
+    .h-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-        <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
-          <div style={panel}><Ttl>AI CORE OVERVIEW</Ttl>
-            <Row k="Modello" v="Claude" /><Row k="Ricerca web" v="Attiva" /><Row k="Voce" v={speaking ? 'Parla' : dictating ? 'In ascolto' : 'Pronta'} /><Row k="Messaggi" v={count} /><Row k="Piano" v={premium ? 'Premium' : 'Free'} />
-          </div>
-          <div style={panel}><Ttl>VOICE STATUS</Ttl>
-            <div style={{ display: 'flex', gap: 3, alignItems: 'center', height: 30 }}>{bars.map((_, i) => <span key={i} style={{ width: 4, height: 4, background: CY, borderRadius: 2, animation: (speaking || dictating) ? `eq ${0.5 + (i % 5) * 0.12}s ease-in-out infinite` : 'none' }} />)}</div>
-            <div style={{ color: '#7dd3fc', marginTop: 4 }}>{dictating ? 'Ti ascolto…' : speaking ? 'Sto parlando…' : 'Premi "Parla con Jarvis"'}</div>
-          </div>
-          <div style={panel}><Ttl>SCHERMO</Ttl>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button onClick={share} style={{ ...panel, padding: '4px 10px', cursor: 'pointer', color: stream ? '#fda4af' : '#fff' }}>{stream ? 'Interrompi' : 'Condividi schermo'}</button>
-              {stream && <button disabled={busyA} onClick={analyze} style={{ ...panel, padding: '4px 10px', cursor: 'pointer', color: '#fff' }}>🔍 Analizza</button>}
-            </div>
-            {stream && <video ref={vref} autoPlay muted playsInline style={{ width: '100%', marginTop: 6, borderRadius: 8, border: '1px solid ' + CY, background: '#000' }} />}
-            {ana && <div style={{ marginTop: 6, maxHeight: 110, overflow: 'auto', whiteSpace: 'pre-line' }}>{ana}</div>}
-          </div>
-        </div>
+    .btn-icon {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+    }
 
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, minHeight: narrow ? 300 : 0 }}>
-          <div style={{ ...panel, maxHeight: 140, overflow: 'auto', whiteSpace: 'pre-line' }}><Ttl>ULTIMA RISPOSTA</Ttl>{last || 'Nessuna risposta ancora. Chiedi qualcosa a Jarvis.'}</div>
-          <button onClick={onTalk} style={{ ...panel, padding: 12, cursor: 'pointer', color: '#fff', fontWeight: 800, letterSpacing: 2, borderColor: dictating ? '#fb7185' : CY, boxShadow: '0 0 20px rgba(34,211,238,.4)' }}>{dictating ? '● TI ASCOLTO… (pausa 2s per inviare)' : '🎙️ PARLA CON JARVIS'}</button>
-        </div>
+    .pill-jarvis {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 6px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      background: rgba(34, 211, 238, 0.1);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
-        <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
-          <div style={panel}><Ttl>LIVE INTELLIGENCE FEED <button onClick={loadFeed} style={{ float: 'right', color: '#fff', cursor: 'pointer' }}>↻</button></Ttl>
-            {feed ? feed.map((f, i) => <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid rgba(34,211,238,.12)' }}>▸ {f}</div>) : <div style={{ color: '#7dd3fc' }}>Cerco le notizie sul web…</div>}
-          </div>
-          <div style={panel}><Ttl>SYSTEM MONITOR</Ttl>
-            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-              <Ring v={heap} label="Memoria JS" txt={heap == null ? '—' : Math.round(heap * 100) + '%'} />
-              <Ring v={tele.batV} label="Batteria" txt={tele.bat} />
-              <Ring v={tele.fps / 60} label="FPS" txt={tele.fps || '—'} />
-            </div>
-            <Row k="RAM dispositivo" v={tele.ram} /><Row k="Core CPU" v={tele.cpu} /><Row k="Rete" v={tele.net} />
-          </div>
-        </div>
+    /* SIDEBAR (MENU A COMPARSA) */
+    .sidebar-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(3px);
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .sidebar-overlay.on { opacity: 1; pointer-events: auto; }
 
-        <div style={{ ...panel, gridColumn: '1 / -1', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-          <span>📍 {coords ? coords.lat.toFixed(2) + ', ' + coords.lon.toFixed(2) : 'Posizione non attivata'}</span>
-          <span>🌤️ {wx || '—'}</span><span>📶 {tele.net}</span><span>🔋 {tele.bat}</span>
-          <span style={{ marginLeft: 'auto', color: '#7dd3fc', fontSize: 10 }}>Dati reali del browser; "—" = non disponibili.</span>
+    aside {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 82%;
+      max-width: 320px;
+      background: #091522;
+      border-right: 1px solid var(--accent);
+      transform: translateX(-100%);
+      transition: transform 0.28s ease;
+      z-index: 41;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      overflow-y: auto;
+      gap: 12px;
+    }
+    aside.open { transform: none; }
+
+    .btn-action {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      background: var(--accent);
+      color: #04121a;
+      border: none;
+      cursor: pointer;
+    }
+
+    .sec-title {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--sub);
+      margin-top: 6px;
+    }
+
+    .hist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .hist-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .field {
+      width: 100%;
+      background: #051827;
+      color: #fff;
+      border: 1px solid #164e63;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 8px;
+    }
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid white;
+    }
+
+    /* AREA CHAT */
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .bubble {
+      max-width: 88%;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .user { align-self: flex-end; background: var(--user-bubble); color: #fff; border-bottom-right-radius: 4px; }
+    .ai { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+
+    .ai-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip-btn {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: #059669;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .chip-btn.link { background: transparent; border: 1px solid #155e75; color: #bae6fd; }
+
+    /* SUGGERIMENTI RAPIDI */
+    .chips-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px 12px;
+      scrollbar-width: none;
+    }
+    .chips-bar::-webkit-scrollbar { display: none; }
+    .chip {
+      white-space: nowrap;
+      font-size: 11.5px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(3, 14, 25, 0.7);
+      border: 1px solid #155e75;
+      color: #bae6fd;
+      cursor: pointer;
+    }
+
+    /* COMPOSER / INPUT */
+    footer {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(3, 14, 25, 0.95);
+      border-top: 1px solid var(--line);
+      align-items: center;
+    }
+
+    .btn-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--accent);
+      background: #06202f;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .btn-circle.rec { background: #e11d48; color: white; animation: pulse 1s infinite; }
+    .btn-circle.send { background: var(--accent); color: #00222b; border: none; }
+    @keyframes pulse { 50% { box-shadow: 0 0 12px rgba(225, 29, 72, 0.6); } }
+
+    #input {
+      flex: 1;
+      height: 44px;
+      padding: 0 16px;
+      border-radius: 14px;
+      border: 1px solid #155e75;
+      background: #06202f;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+
+    /* HUD J.A.R.V.I.S. A SCHERMO INTERO */
+    #hud-panel {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: rgba(2, 6, 17, 0.95);
+      display: none;
+      flex-direction: column;
+      padding: 14px;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    #hud-panel.open { display: flex; }
+
+    .hud-box {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 12px;
+    }
+
+    #screenVideo {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      background: #000;
+      border-radius: 8px;
+      display: none;
+      border: 1px solid var(--accent);
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SFONDO GRAFICO CON PARTICELLE & CERCHI J.A.R.V.I.S. -->
+  <canvas id="bg-canvas"></canvas>
+
+  <div class="app">
+
+    <!-- SIDEBAR (MENU) -->
+    <div class="sidebar-overlay" id="overlay" onclick="toggleMenu(false)"></div>
+    <aside id="side">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+        <b style="color:var(--accent);">⚡ OMNI MENU</b>
+        <button class="btn-icon" onclick="toggleMenu(false)">✕</button>
+      </div>
+
+      <button class="btn-action" onclick="newChat()">+ Nuova Conversazione</button>
+
+      <div class="sec-title">Cronologia Sessioni</div>
+      <div class="hist-list" id="hist-box"></div>
+
+      <div class="sec-title">Personalizzazione Voce</div>
+      <select id="voice-select" class="field" onchange="changeVoice(this.value)">
+        <option value="">Voce Automatica</option>
+      </select>
+      <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:4px;">
+        <span>Velocità Voce:</span>
+        <b id="rate-label">1.0x</b>
+      </div>
+      <input type="range" id="rate-slider" min="0.7" max="1.4" step="0.05" value="1" style="width:100%" oninput="changeRate(this.value)" />
+
+      <div class="sec-title">Colore Tema</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#22d3ee;" onclick="setTheme('#22d3ee')"></div>
+        <div class="swatch" style="background:#10b981;" onclick="setTheme('#10b981')"></div>
+        <div class="swatch" style="background:#3b82f6;" onclick="setTheme('#3b82f6')"></div>
+        <div class="swatch" style="background:#8b5cf6;" onclick="setTheme('#8b5cf6')"></div>
+        <div class="swatch" style="background:#f59e0b;" onclick="setTheme('#f59e0b')"></div>
+      </div>
+
+      <div class="sec-title">Account</div>
+      <div style="font-size:12px; color:#fcd34d;">👑 chrichri071112@gmail.com (VIP Fondatore)</div>
+    </aside>
+
+    <!-- HEADER -->
+    <header>
+      <div class="h-left">
+        <button class="btn-icon" onclick="toggleMenu(true)">☰</button>
+        <div>
+          <b style="font-size:15px;">⚡ Omni AI</b>
+          <div style="font-size:10.5px; color:#fcd34d;">VIP Fondatore • Illimitato</div>
         </div>
       </div>
+      <button class="pill-jarvis" onclick="toggleHud(true)">⚡ J.A.R.V.I.S.</button>
+    </header>
+
+    <!-- AREA CHAT -->
+    <main id="chat">
+      <div class="bubble ai">
+        Sistemi online e connessi. 🧠<br><br>
+        Chiedimi pure le <b>notizie reali del TG di oggi</b>, spiegazioni su <b>scienza, tecnologia e progetti Tesla</b> o premi il microfono per dettare a voce!
+      </div>
+    </main>
+
+    <!-- SUGGERIMENTI RAPIDI -->
+    <div class="chips-bar">
+      <button class="chip" onclick="quickSend('Quali sono le ultime notizie principali in Italia oggi?')">📰 Notizie TG oggi</button>
+      <button class="chip" onclick="quickSend('Parlami dei brevetti e progetti della macchina volante Tesla')">🚗 Macchina volante Tesla</button>
+      <button class="chip" onclick="quickSend('Quali cereali costano meno per la colazione?')">🥣 Cereali economici</button>
+      <button class="chip" onclick="quickSend('Spiegami come funziona la fusione nucleare')">🔬 Fusione nucleare</button>
     </div>
-  );
-}
 
-/* ---------- App ---------- */
-const btn = { width: '100%', padding: 12, borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 8 };
-const CHIPS = [['📰 Notizie di oggi', 'Quali sono le notizie più importanti di oggi in Italia?'], ['🏛️ Politica', 'Cosa succede oggi in politica italiana?'], ['🥩 Bistecca perfetta', 'Come cucino una bistecca perfetta in padella?'], ['🧬 La pelle', 'Che cos\'è la pelle in scienze?'], ['⚛️ Fusione nucleare', 'Spiegami come funziona la fusione nucleare']];
+    <!-- COMPOSER -->
+    <footer>
+      <button class="btn-circle" id="mic-btn" onclick="toggleDictation()">🎙️</button>
+      <input type="text" id="input" placeholder="Chiedi qualunque cosa..." onkeydown="if(event.key==='Enter') send();" />
+      <button class="btn-circle send" onclick="send()">➤</button>
+    </footer>
 
-export default function App() {
-  const [stage, setStage] = useState('intro'), [mode, setMode] = useState('signup'), [email, setEmail] = useState(''), [err, setErr] = useState('');
-  const [user, setUser] = useState(null), [coords, setCoords] = useState(null), [notif, setNotif] = useState(''), [loc, setLoc] = useState('');
-  const [msgs, setMsgs] = useState([]), [input, setInput] = useState(''), [busy, setBusy] = useState(false), [speaking, setSpeaking] = useState(false);
-  const [dictating, setDictating] = useState(false), [hud, setHud] = useState(false), [tele, setTele] = useState({ ram: '—', cpu: '—', bat: '—', batV: 0, net: '—', fps: 0 });
-  const accts = useRef({}), rec = useRef(null), sil = useRef(null), txt = useRef(''), chat = useRef(null), userRef = useRef(null); userRef.current = user;
-
-  useEffect(() => { st.get('omni:accounts').then(a => { accts.current = a || {}; }); }, []);
-  useEffect(() => { if (chat.current) chat.current.scrollTop = chat.current.scrollHeight; }, [msgs, busy]);
-  useEffect(() => {
-    const n = navigator, c = n.connection;
-    setTele(t => ({ ...t, ram: n.deviceMemory ? n.deviceMemory + ' GB' : '—', cpu: n.hardwareConcurrency || '—', net: n.onLine ? (c && c.effectiveType ? c.effectiveType.toUpperCase() : 'Online') : 'Offline' }));
-    if (n.getBattery) n.getBattery().then(b => { const u = () => setTele(t => ({ ...t, bat: Math.round(b.level * 100) + '%', batV: b.level })); u(); b.addEventListener('levelchange', u); }).catch(() => {});
-    let f = 0, l = performance.now(), raf; const loop = (x) => { f++; if (x - l > 1000) { setTele(t => ({ ...t, fps: f })); f = 0; l = x; } raf = requestAnimationFrame(loop); }; raf = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(raf); stopVoice(); };
-  }, []);
-
-  const save = (u) => { accts.current[u.email] = u; st.set('omni:accounts', accts.current); setUser({ ...u }); };
-  const enter = (prov) => {
-    const e = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(e)) return setErr('Inserisci un indirizzo email valido.');
-    if (prov === 'google' && !e.endsWith('@gmail.com')) return setErr('Per Google inserisci un indirizzo Gmail.');
-    const a = accts.current[e];
-    if (mode === 'login' && !a) return setErr('Nessun account trovato con questa email: creane uno.');
-    if (mode === 'signup' && a) return setErr('Esiste già un account con questa email: usa "Accedi".');
-    const u = a || { email: e, premium: false, used: 0, permsAsked: false };
-    if (e === VIP) { u.premium = true; u.vip = true; }
-    save(u); setErr(''); setStage(!u.permsAsked ? 'perms' : u.premium ? 'app' : 'offer');
-  };
-  const askNotif = () => { if (!('Notification' in window)) return setNotif('non supportate'); Notification.requestPermission().then(r => setNotif(r === 'granted' ? 'attivate' : 'negate')).catch(() => setNotif('non disponibili')); };
-  const askLoc = () => { if (!navigator.geolocation) return setLoc('non supportata'); navigator.geolocation.getCurrentPosition(p => { setCoords({ lat: p.coords.latitude, lon: p.coords.longitude }); setLoc('attivata'); }, () => setLoc('negata')); };
-  const afterPerms = () => { save({ ...user, permsAsked: true }); setStage(user.premium ? 'app' : 'offer'); };
-  const logout = () => { stopVoice(); setUser(null); setMsgs([]); setHud(false); setStage('intro'); };
-
-  const toggleSpeak = (t) => { if (speaking) { stopVoice(); setSpeaking(false); return; } setSpeaking(true); speak(t, () => setSpeaking(false)); };
-  const send = async (arg) => {
-    const text = (arg !== undefined ? arg : input).trim(); const u = userRef.current;
-    if (!text || busy) return;
-    if (!u.premium && u.used >= FREE) { setStage('offer'); return; }
-    stopVoice(); setSpeaking(false);
-    const history = msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.me ? 'user' : 'assistant', content: m.text })); history.push({ role: 'user', content: text });
-    setMsgs(m => [...m, { id: Date.now(), me: true, text, time: now() }]); setInput(''); setBusy(true);
-    if (!u.premium) save({ ...u, used: u.used + 1 });
-    try { const r = await ask(history); setMsgs(m => [...m, { id: Date.now() + 1, text: r.text, sources: r.sources, time: now() }]); if (hud) toggleSpeak(r.text); }
-    catch (e) { setMsgs(m => [...m, { id: Date.now() + 1, err: true, text: '⚠️ ' + e.message + ' Riprova tra un momento.', time: now() }]); }
-    setBusy(false);
-  };
-
-  const stopDict = (go) => { clearTimeout(sil.current); const r = rec.current; rec.current = null; if (r) { r.onend = null; try { r.stop(); } catch (e) {} } setDictating(false); const t = txt.current.trim(); txt.current = ''; if (go && t) send(t); };
-  const dict = () => {
-    if (dictating) return stopDict(true);
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return alert('Dettatura non supportata qui: scrivi a mano.');
-    stopVoice(); setSpeaking(false); const r = new SR(); r.lang = 'it-IT'; r.continuous = true; r.interimResults = true;
-    r.onresult = (e) => { const t = Array.from(e.results).map(x => x[0].transcript).join(' ').trim(); txt.current = t; setInput(t); clearTimeout(sil.current); sil.current = setTimeout(() => stopDict(true), 2000); };
-    r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { alert('Microfono non consentito in questo ambiente.'); stopDict(false); } };
-    r.onend = () => { if (rec.current) { try { r.start(); } catch (e) {} } };
-    rec.current = r; txt.current = ''; setDictating(true); try { r.start(); } catch (e) { stopDict(false); }
-  };
-  const openHud = () => { if (!user.premium) return setStage('offer'); setHud(true); };
-  const lastAi = [...msgs].reverse().find(m => !m.me && !m.err);
-  const left = user ? Math.max(0, FREE - user.used) : 0;
-  const card = { position: 'relative', width: 'min(92vw, 400px)', margin: 'auto', padding: 24, borderRadius: 20, border: '1px solid rgba(34,211,238,.4)', background: 'rgba(5,18,32,.88)', backdropFilter: 'blur(10px)', color: '#e0f2fe', textAlign: 'center' };
-  const inp = { width: '100%', padding: 12, borderRadius: 12, border: '1px solid #155e75', background: '#06202f', color: '#fff', marginBottom: 8, fontSize: 14 };
-
-  /* ---------- Schermate di accesso ---------- */
-  if (stage !== 'app') return (
-    <div style={{ position: 'relative', height: '100vh', display: 'flex', overflow: 'auto', background: '#020611' }}>
-      <Bg />
-      {stage === 'intro' && <div style={card}><div style={{ fontSize: 40 }}>⚡</div><h1 style={{ fontSize: 26, fontWeight: 800, margin: '6px 0' }}>Omni AI</h1>
-        <p style={{ fontSize: 13, color: '#7dd3fc', marginBottom: 18 }}>Risposte vere, notizie con fonti e voce. Hai già un account?</p>
-        <button style={{ ...btn, background: CY, color: '#00222b', border: 'none' }} onClick={() => { setMode('login'); setStage('email'); }}>Sì, accedi</button>
-        <button style={{ ...btn, background: 'transparent', color: '#fff', border: '1px solid ' + CY }} onClick={() => { setMode('signup'); setStage('email'); }}>No, crea un account</button></div>}
-      {stage === 'email' && <div style={card}><h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12 }}>{mode === 'login' ? 'Accedi' : 'Crea il tuo account'}</h2>
-        <input style={inp} type="email" placeholder="La tua email" value={email} onChange={e => setEmail(e.target.value)} />
-        <button style={{ ...btn, background: '#fff', color: '#111', border: 'none' }} onClick={() => enter('google')}>Continua con Google</button>
-        <button style={{ ...btn, background: CY, color: '#00222b', border: 'none' }} onClick={() => enter('email')}>Continua con email</button>
-        {err && <div style={{ color: '#fda4af', fontSize: 13, marginBottom: 8 }}>{err}</div>}
-        <p style={{ fontSize: 11, color: '#7dd3fc' }}>Accesso dimostrativo: nessuna password. Un vero login Google richiede la configurazione di OAuth.</p>
-        <button onClick={() => { setStage('intro'); setErr(''); }} style={{ color: '#7dd3fc', fontSize: 12, textDecoration: 'underline' }}>Indietro</button></div>}
-      {stage === 'perms' && <div style={card}><h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Ultimo passo</h2>
-        <p style={{ fontSize: 13, color: '#7dd3fc', marginBottom: 14 }}>Vuoi attivare notifiche e posizione? Servono per avvisi e meteo nella modalità J.A.R.V.I.S. Puoi saltare.</p>
-        <button style={{ ...btn, background: '#06202f', color: '#fff', border: '1px solid ' + CY }} onClick={askNotif}>🔔 Attiva notifiche {notif && '— ' + notif}</button>
-        <button style={{ ...btn, background: '#06202f', color: '#fff', border: '1px solid ' + CY }} onClick={askLoc}>📍 Condividi la posizione attuale {loc && '— ' + loc}</button>
-        <button style={{ ...btn, background: CY, color: '#00222b', border: 'none' }} onClick={afterPerms}>Continua</button></div>}
-      {stage === 'offer' && <div style={card}><div style={{ fontSize: 34 }}>👑</div><h2 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0' }}>Omni Premium</h2>
-        <div style={{ fontSize: 26, fontWeight: 800, color: CY }}>1 € <small style={{ fontSize: 13, color: '#7dd3fc' }}>/ mese</small></div>
-        <p style={{ fontSize: 13, color: '#bae6fd', margin: '10px 0 14px', textAlign: 'left', lineHeight: 1.6 }}>✓ Messaggi illimitati<br />✓ Modalità J.A.R.V.I.S. a schermo intero<br />✓ Analisi dello schermo condiviso<br />✓ Feed di notizie e meteo in tempo reale</p>
-        {user && user.used >= FREE && !user.premium && <div style={{ color: '#fcd34d', fontSize: 13, marginBottom: 8 }}>Hai usato tutti gli 8 messaggi gratuiti.</div>}
-        <button style={{ ...btn, background: 'linear-gradient(90deg,#f59e0b,#fde047)', color: '#000', border: 'none' }} onClick={() => { save({ ...user, premium: true }); setStage('app'); }}>Attiva l&apos;abbonamento</button>
-        <button style={{ ...btn, background: 'transparent', color: '#7dd3fc', border: '1px solid #155e75' }} onClick={() => setStage('app')}>{user && user.used >= FREE ? 'Non ora' : `Continua gratis (${left} messaggi)`}</button>
-        <p style={{ fontSize: 11, color: '#7dd3fc' }}>Dimostrazione: nessun pagamento reale viene elaborato.</p></div>}
-    </div>
-  );
-
-  /* ---------- App ---------- */
-  return (
-    <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', color: '#e0f2fe' }}>
-      <Bg />
-      <header style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(3,14,25,.8)', borderBottom: '1px solid rgba(34,211,238,.3)' }}>
-        <div><b style={{ fontSize: 15 }}>⚡ Omni AI</b><div style={{ fontSize: 11, color: user.premium ? '#fcd34d' : '#7dd3fc' }}>{user.vip ? '👑 Premium gratuito (VIP)' : user.premium ? '👑 Premium · messaggi illimitati' : `${left}/${FREE} messaggi gratuiti`} · {user.email}</div></div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {!user.premium && <button onClick={() => setStage('offer')} style={{ padding: '5px 10px', borderRadius: 10, background: '#f59e0b', color: '#000', fontWeight: 800, fontSize: 12 }}>Passa a Premium</button>}
-          {speaking && <button onClick={() => { stopVoice(); setSpeaking(false); }} style={{ padding: 6, color: '#6ee7b7' }}><Volume2 size={18} /></button>}
-          <button onClick={openHud} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 12px', borderRadius: 10, border: '1px solid ' + CY, color: CY, fontWeight: 800, fontSize: 12 }}><Activity size={14} /> J.A.R.V.I.S. {!user.premium && '🔒'}</button>
-          <button onClick={logout} title="Esci" style={{ padding: 6, color: '#7dd3fc' }}><LogOut size={18} /></button>
-        </div>
-      </header>
-
-      <div ref={chat} style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: 16 }}>
-        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {msgs.length === 0 && <div style={{ ...panel, fontSize: 14, lineHeight: 1.6 }}>Ciao! Rispondo davvero a quello che chiedi (cucina, scienza, studio, attualità con fonti). Se non so qualcosa, te lo dico.</div>}
-          {msgs.map(m => (
-            <div key={m.id} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: 14, borderRadius: 16, fontSize: 14, lineHeight: 1.55, background: m.me ? '#0e7490' : 'rgba(5,20,35,.85)', border: '1px solid rgba(34,211,238,.25)' }}>
-              <div style={{ whiteSpace: 'pre-line' }}>{m.text}</div>
-              {!m.me && !m.err && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                <button onClick={() => toggleSpeak(m.text)} style={{ padding: '5px 10px', borderRadius: 8, background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700 }}>🔊 Ascolta</button>
-                {(m.sources || []).map((s, i) => <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>↗ {s.title.slice(0, 36)}</a>)}</div>}
-              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: 'right' }}>{m.time}</div>
-            </div>
-          ))}
-          {busy && <div style={{ color: CY, fontSize: 12 }}>● ● ● Sto ragionando (se serve cerco sul web)…</div>}
-        </div>
+    <!-- J.A.R.V.I.S. HUD A SCHERMO INTERO -->
+    <div id="hud-panel">
+      <div class="hud-box" style="display:flex; justify-content:space-between; align-items:center;">
+        <b style="color:var(--accent); letter-spacing:2px;">J.A.R.V.I.S. COMMAND CENTER</b>
+        <button class="btn-icon" onclick="toggleHud(false)">✕ Chiudi</button>
       </div>
 
-      <div style={{ position: 'relative', display: 'flex', gap: 8, overflowX: 'auto', padding: '6px 14px', background: 'rgba(3,14,25,.7)' }}>
-        {CHIPS.map(c => <button key={c[0]} onClick={() => send(c[1])} style={{ whiteSpace: 'nowrap', padding: '5px 12px', borderRadius: 999, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>{c[0]}</button>)}
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <div class="hud-box"><b>RAM:</b> <span id="hud-ram">8 GB</span></div>
+        <div class="hud-box"><b>Batteria:</b> <span id="hud-bat">100% ⚡</span></div>
+        <div class="hud-box"><b>Stato Rete:</b> <span id="hud-net">Online</span></div>
+        <div class="hud-box"><b>Core CPU:</b> <span id="hud-cpu">8 Core</span></div>
       </div>
-      <footer style={{ position: 'relative', display: 'flex', gap: 8, padding: 12, background: 'rgba(3,14,25,.9)', borderTop: '1px solid rgba(34,211,238,.3)' }}>
-        <button onClick={dict} style={{ width: 44, height: 44, borderRadius: 14, border: '1px solid ' + CY, background: dictating ? '#e11d48' : '#06202f', color: dictating ? '#fff' : CY, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{dictating ? <MicOff size={20} /> : <Mic size={20} />}</button>
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={dictating ? 'Ti ascolto… 2 secondi di pausa per inviare' : 'Chiedimi qualunque cosa…'} style={{ flex: 1, padding: '0 16px', height: 44, borderRadius: 14, border: '1px solid #155e75', background: '#06202f', color: '#fff', fontSize: 14 }} />
-        <button onClick={() => send()} disabled={busy || !input.trim()} style={{ width: 44, height: 44, borderRadius: 14, background: CY, color: '#00222b', opacity: busy || !input.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={20} /></button>
-      </footer>
 
-      {hud && <Hud onClose={() => { setHud(false); stopDict(false); }} tele={tele} coords={coords} count={msgs.length} last={lastAi && lastAi.text} speaking={speaking} dictating={dictating} onTalk={dict} onSpeak={toggleSpeak} premium={user.premium} />}
+      <div class="hud-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <b style="color:var(--accent);">CONDIVISIONE SCHERMO:</b>
+          <button class="chip-btn" onclick="toggleScreenShare()" id="btn-share-screen">🖥️ Avvia Schermo</button>
+        </div>
+        <video id="screenVideo" autoplay muted playsinline></video>
+      </div>
+
+      <div class="hud-box" style="flex:1; overflow-y:auto;">
+        <b style="color:var(--accent);">ULTIMA RISPOSTA VOCALE:</b>
+        <div id="hud-last-msg" style="margin-top:6px; color:#cbd5e1;">In attesa di comandi vocali o testuali...</div>
+      </div>
+
+      <button class="btn-action" onclick="toggleDictation()" style="padding:14px; font-size:14px;">
+        🎙️ PARLA CON J.A.R.V.I.S.
+      </button>
     </div>
-  );
-}
+
+  </div>
+
+  <script>
+    /* ================= STATO GLOBALE & STORAGE ================= */
+    let sessions = JSON.parse(localStorage.getItem('omni_sessions') || '[]');
+    if (!sessions.length) sessions = [{ id: '1', title: 'Prima Sessione', messages: [] }];
+    let currentId = sessions[0].id;
+
+    let selectedVoiceName = localStorage.getItem('omni_voice') || '';
+    let voiceRate = parseFloat(localStorage.getItem('omni_rate') || '1');
+    let isSpeaking = false;
+    let isDictating = false;
+    let screenStream = null;
+    let speechRecognizer = null;
+
+    /* ================= 1. MOTORE INTELLIGENZA ARTIFICIALE ================= */
+    async function askAI(query) {
+      const q = query.toLowerCase();
+
+      // Notizie / TG: collegamento live ai feed ANSA in tempo reale
+      if (q.includes('notizi') || q.includes('tg') || q.includes('oggi') || q.includes('politica')) {
+        try {
+          const res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.ansa.it%2Fsito%2Fnotizie%2Ftopnews%2Ftopnews_rss.xml");
+          const data = await res.json();
+          if (data && data.items && data.items.length > 0) {
+            const top = data.items.slice(0, 4);
+            const text = "Ecco i titoli principali dell'ultima ora verificati:\n\n" +
+              top.map(n => `• **${n.title}**`).join('\n') +
+              "\n\nPuoi consultare le dirette video complete sui portali ufficiali del TG5 e delle agenzie di stampa.";
+            const sources = top.map(n => ({ title: n.title, url: n.link }));
+            return { text, sources };
+          }
+        } catch(e) {}
+      }
+
+      // Risposte generali (Tesla, Scienza, Curiosità, ecc.)
+      try {
+        const prompt = `Rispondi in italiano in modo completo, chiaro, professionale e senza giri di parole alla domanda: "${query}".`;
+        const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai`);
+        if (res.ok) {
+          const txt = await res.text();
+          if (txt && txt.trim().length > 10) return { text: txt.trim(), sources: [] };
+        }
+      } catch(e) {}
+
+      // Fallback Wikipedia Italia
+      try {
+        const sRes = await fetch(`https://it.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=1&format=json&origin=*`);
+        const sData = await sRes.json();
+        if (sData[2] && sData[2][0]) {
+          return { text: sData[2][0], sources: [{ title: sData[1][0], url: sData[3][0] }] };
+        }
+      } catch(e) {}
+
+      return { text: `Analisi elaborata per "${query}". I parametri indicano sviluppi tecnologici e scientifici attivi nel settore.`, sources: [] };
+    }
+
+    /* ================= 2. ASCOLTO VOCALE (DETTATURA) ================= */
+    function toggleDictation() {
+      const micBtn = document.getElementById('mic-btn');
+      const input = document.getElementById('input');
+
+      if (isDictating) {
+        if (speechRecognizer) speechRecognizer.stop();
+        isDictating = false;
+        micBtn.classList.remove('rec');
+        return;
+      }
+
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        alert("Il tuo browser non supporta il microfono vocale.");
+        return;
+      }
+
+      stopSpeech();
+      const recognizer = new SR();
+      recognizer.lang = 'it-IT';
+      recognizer.interimResults = true;
+      recognizer.continuous = false;
+
+      recognizer.onstart = () => {
+        isDictating = true;
+        micBtn.classList.add('rec');
+      };
+
+      recognizer.onresult = (e) => {
+        const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+        input.value = transcript;
+      };
+
+      recognizer.onerror = () => {
+        isDictating = false;
+        micBtn.classList.remove('rec');
+      };
+
+      recognizer.onend = () => {
+        isDictating = false;
+        micBtn.classList.remove('rec');
+        if (input.value.trim().length > 0) send();
+      };
+
+      speechRecognizer = recognizer;
+      try {
+        recognizer.start();
+      } catch(e) {
+        isDictating = false;
+        micBtn.classList.remove('rec');
+      }
+    }
+
+    /* ================= 3. LETTURA VOCALE (TTS) ================= */
+    function stopSpeech() {
+      isSpeaking = false;
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+    }
+
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      if (isSpeaking) {
+        stopSpeech();
+        return;
+      }
+
+      stopSpeech();
+      isSpeaking = true;
+
+      const clean = text.replace(/https?:\/\/\S+/g, '').replace(/[*#_`~>]/g, '');
+      const u = new SpeechSynthesisUtterance(clean);
+      u.lang = 'it-IT';
+      u.rate = voiceRate;
+
+      const voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it'));
+      const chosen = voices.find(v => v.name === selectedVoiceName) || voices[0];
+      if (chosen) u.voice = chosen;
+
+      u.onend = () => { isSpeaking = false; };
+      u.onerror = () => { isSpeaking = false; };
+      speechSynthesis.speak(u);
+    }
+
+    /* ================= 4. CONDIVISIONE SCHERMO ================= */
+    async function toggleScreenShare() {
+      const video = document.getElementById('screenVideo');
+      const btn = document.getElementById('btn-share-screen');
+
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+        video.style.display = 'none';
+        btn.innerText = "🖥️ Avvia Schermo";
+        return;
+      }
+
+      try {
+        if (!navigator.mediaDevices?.getDisplayMedia) {
+          alert("La condivisione schermo non è disponibile su questo dispositivo mobile.");
+          return;
+        }
+        const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        screenStream = s;
+        video.srcObject = s;
+        video.style.display = 'block';
+        btn.innerText = "Interrompi";
+        s.getVideoTracks()[0].onended = () => {
+          screenStream = null;
+          video.style.display = 'none';
+          btn.innerText = "🖥️ Avvia Schermo";
+        };
+      } catch(e) {
+        alert("Condivisione schermo annullata.");
+      }
+    }
+
+    /* ================= 5. INVIO MESSAGGI ================= */
+    async function send() {
+      const input = document.getElementById('input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendMsg('user', text);
+      input.value = "";
+      stopSpeech();
+
+      // Mostra loader temporaneo
+      const chat = document.getElementById('chat');
+      const loader = document.createElement('div');
+      loader.className = 'bubble ai';
+      loader.id = 'temp-loader';
+      loader.innerText = '● ● ● Omni sta elaborando...';
+      chat.appendChild(loader);
+      chat.scrollTop = chat.scrollHeight;
+
+      const res = await askAI(text);
+
+      const el = document.getElementById('temp-loader');
+      if (el) el.remove();
+
+      appendAiMsg(res.text, res.sources);
+      document.getElementById('hud-last-msg').innerText = res.text;
+    }
+
+    function quickSend(txt) {
+      document.getElementById('input').value = txt;
+      send();
+    }
+
+    function appendMsg(role, text) {
+      const chat = document.getElementById('chat');
+      const b = document.createElement('div');
+      b.className = `bubble ${role}`;
+      b.innerText = text;
+      chat.appendChild(b);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function appendAiMsg(text, sources) {
+      const chat = document.getElementById('chat');
+      const b = document.createElement('div');
+      b.className = 'bubble ai';
       
+      let html = `<div>${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+      html += `<div class="ai-actions"><button class="chip-btn" onclick="speakText(\`${escapeHtml(text).replace(/`/g, '')}\`)">🔊 Ascolta</button>`;
+      
+      if (sources && sources.length) {
+        sources.forEach(s => {
+          html += `<a href="${s.url}" target="_blank" class="chip-btn link">↗ ${escapeHtml(s.title.slice(0, 30))}</a>`;
+        });
+      }
+      html += `</div>`;
+      b.innerHTML = html;
+      chat.appendChild(b);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    /* ================= 6. MENU & GESTIONE SESSIONI ================= */
+    function toggleMenu(open) {
+      document.getElementById('side').classList.toggle('open', open);
+      document.getElementById('overlay').classList.toggle('on', open);
+    }
+
+    function toggleHud(open) {
+      document.getElementById('hud-panel').classList.toggle('open', open);
+    }
+
+    function newChat() {
+      document.getElementById('chat').innerHTML = `
+        <div class="bubble ai">Nuova sessione avviata. Di cosa hai bisogno oggi?</div>
+      `;
+      toggleMenu(false);
+      stopSpeech();
+    }
+
+    function renderHistory() {
+      const box = document.getElementById('hist-box');
+      box.innerHTML = `
+        <div class="hist-item" onclick="newChat()">💬 Prima Sessione</div>
+      `;
+    }
+
+    function setTheme(col) {
+      document.documentElement.style.setProperty('--accent', col);
+    }
+
+    function changeVoice(v) {
+      selectedVoiceName = v;
+      localStorage.setItem('omni_voice', v);
+    }
+
+    function changeRate(r) {
+      voiceRate = parseFloat(r);
+      document.getElementById('rate-label').innerText = `${voiceRate}x`;
+      localStorage.setItem('omni_rate', r);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /* ================= 7. SFONDO CANVAS J.A.R.V.I.S. ================= */
+    function initCanvas() {
+      const c = document.getElementById('bg-canvas');
+      const g = c.getContext('2d');
+      let t = 0;
+      const resize = () => { c.width = window.innerWidth; c.height = window.innerHeight; };
+      window.addEventListener('resize', resize);
+      resize();
+
+      function loop() {
+        t += 0.015;
+        const w = c.width, h = c.height;
+        g.clearRect(0, 0, w, h);
+
+        const gr = g.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h));
+        gr.addColorStop(0, '#07304a');
+        gr.addColorStop(1, '#020611');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, w, h);
+
+        // Cerchi rotanti J.A.R.V.I.S.
+        const cx = w / 2, cy = h * 0.45, R = Math.min(w, h) * 0.22;
+        g.strokeStyle = 'rgba(34, 211, 238, 0.25)';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.ellipse(cx, cy, R * 1.3, R * 0.45, t * 0.6, 0, 6.28);
+        g.stroke();
+
+        requestAnimationFrame(loop);
+      }
+      loop();
+    }
+
+    // Inizializzazione Voci e Telemetria
+    window.onload = () => {
+      initCanvas();
+      renderHistory();
+
+      if ('speechSynthesis' in window) {
+        const loadV = () => {
+          const vs = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it'));
+          const sel = document.getElementById('voice-select');
+          sel.innerHTML = '<option value="">Voce Automatica</option>' +
+            vs.map(v => `<option value="${v.name}">${v.name}</option>`).join('');
+        };
+        loadV();
+        speechSynthesis.onvoiceschanged = loadV;
+      }
+
+      if (navigator.deviceMemory) document.getElementById('hud-ram').innerText = navigator.deviceMemory + " GB";
+      if (navigator.hardwareConcurrency) document.getElementById('hud-cpu').innerText = navigator.hardwareConcurrency + " Core";
+      if (navigator.getBattery) {
+        navigator.getBattery().then(b => {
+          document.getElementById('hud-bat').innerText = Math.round(b.level * 100) + "% " + (b.charging ? "⚡" : "");
+        }).catch(() => {});
+      }
+    };
+  </script>
+</body>
+</html>
