@@ -1,1133 +1,826 @@
 <!DOCTYPE html>
 <html lang="it" translate="no">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="google" content="notranslate" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Omni AI - ChatGPT 5.6 & J.A.R.V.I.S. Ultra</title>
-  <style>
-    :root {
-      --bg-dark: #0a0e14;
-      --bg-sidebar: #0f172a;
-      --card-bg: #161b22;
-      --card-border: rgba(255, 255, 255, 0.1);
-      --accent: #2563eb;
-      --pro-gold: #f59e0b;
-      --jarvis-cyan: #00f2fe;
-      --jarvis-glow: rgba(0, 242, 254, 0.35);
-      --text-main: #f0f6fc;
-      --text-sub: #8b949e;
-      --user-bubble: #2563eb;
-      --ai-bubble: #161b22;
-    }
+<meta charset="UTF-8" />
+<meta name="google" content="notranslate" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Omni AI</title>
+<style>
+:root{
+  --bg:#0b0f17; --panel:#111827; --card:#161d2b; --line:rgba(255,255,255,.09);
+  --accent:#3b82f6; --accent-2:#22d3ee; --text:#e8edf5; --sub:#8794a8;
+  --user:#2563eb; --ok:#34d399; --warn:#f59e0b; --danger:#ef4444; --radius:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:#05070c;color:var(--text);display:flex;justify-content:center;align-items:center;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+.app{position:relative;width:100%;max-width:460px;height:100dvh;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;transition:box-shadow .3s,border-color .3s}
+@media(min-width:600px){.app{height:94vh;border-radius:28px;border:1px solid var(--line);box-shadow:0 30px 60px rgba(0,0,0,.6)}}
+.app.jarvis{border-color:var(--accent-2);box-shadow:0 0 40px rgba(34,211,238,.25)}
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-    }
+/* ---------- Header ---------- */
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(17,24,39,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);z-index:5}
+.h-left{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:10px;font-size:18px;display:flex;align-items:center;justify-content:center;color:var(--text)}
+.icon-btn:hover{background:rgba(255,255,255,.07)}
+.title{font-weight:700;font-size:15px;letter-spacing:.2px}
+.status{font-size:11px;color:var(--sub);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.dot.off{background:var(--danger)}
+.pill{font-size:11px;font-weight:700;padding:6px 10px;border-radius:999px;border:1px solid var(--accent-2);color:var(--accent-2)}
+.pill.on{background:var(--accent-2);color:#04121a}
 
-    body {
-      background-color: #030712;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      overflow: hidden;
-      color: var(--text-main);
-    }
+/* ---------- Chat ---------- */
+#chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.row{display:flex;flex-direction:column;max-width:94%}
+.row.user{align-self:flex-end}
+.row.ai{align-self:flex-start;width:100%}
+.bubble{padding:12px 14px;border-radius:var(--radius);font-size:14.5px;line-height:1.58}
+.user .bubble{background:var(--user);border-bottom-right-radius:4px}
+.ai .bubble{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bubble p+p,.bubble ul+p,.bubble p+ul{margin-top:8px}
+.bubble ul{padding-left:18px}
+.bubble li{margin:3px 0}
+.bubble strong{color:#fff}
+.meta{font-size:11px;color:var(--sub);margin:4px 6px 0}
+.actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.chipbtn{font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+.chipbtn:hover{background:rgba(255,255,255,.13)}
+.chipbtn.playing{background:var(--ok);color:#052e1f}
 
-    .app-viewport {
-      width: 100%;
-      max-width: 440px;
-      height: 100vh;
-      position: relative;
-      overflow: hidden;
-      background: var(--bg-dark);
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
-      transition: all 0.3s ease;
-    }
+.news{margin-top:10px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0d1320}
+.news-head{padding:9px 12px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--danger);border-bottom:1px solid var(--line)}
+.news a{display:block;padding:10px 12px;text-decoration:none;color:var(--text);border-bottom:1px solid var(--line);font-size:13px;line-height:1.45}
+.news a:last-child{border-bottom:none}
+.news a:hover{background:rgba(255,255,255,.04)}
+.news small{display:block;color:var(--sub);font-size:11px;margin-top:3px}
 
-    @media (min-width: 600px) {
-      .app-viewport {
-        height: 94vh;
-        border-radius: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-      }
-    }
+.typing{display:none;padding:0 18px 8px;font-size:12px;color:var(--sub)}
+.typing.on{display:block}
+.typing i{display:inline-block;width:5px;height:5px;margin-right:3px;border-radius:50%;background:var(--sub);animation:b 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 
-    .app-viewport.jarvis-mode {
-      border-color: var(--jarvis-cyan);
-      box-shadow: 0 0 35px var(--jarvis-glow);
-    }
+/* ---------- Input ---------- */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:8px 14px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;font-size:12px;padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:#c6d0de}
+.chip:hover{border-color:var(--accent)}
+.composer{display:flex;gap:8px;align-items:center;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--line)}
+.composer input{flex:1;background:#1b2436;border:1px solid var(--line);border-radius:24px;padding:12px 16px;color:var(--text);font-size:14.5px;outline:none}
+.composer input:focus{border-color:var(--accent)}
+.round{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:#1b2436;border:1px solid var(--line)}
+.round.send{background:var(--accent);border-color:var(--accent)}
+.round.rec{background:var(--danger);border-color:var(--danger);animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(239,68,68,.15)}}
 
-    /* ================= SIDEBAR A SINISTRA ================= */
-    .sidebar-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.65);
-      backdrop-filter: blur(4px);
-      z-index: 100;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-    .sidebar-overlay.active { opacity: 1; pointer-events: auto; }
+/* ---------- Sidebar ---------- */
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
+.overlay.on{opacity:1;pointer-events:auto}
+aside{position:absolute;top:0;left:0;bottom:0;width:84%;max-width:340px;background:var(--panel);border-right:1px solid var(--line);transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:21;display:flex;flex-direction:column;padding:16px 14px;overflow-y:auto}
+aside.open{transform:none}
+.side-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-weight:800}
+.btn{width:100%;padding:10px;border-radius:10px;font-weight:700;font-size:13px;background:var(--accent);color:#fff}
+.btn.ghost{background:rgba(255,255,255,.07);border:1px solid var(--line)}
+.sec{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--sub);margin:16px 0 7px}
+.hist{display:flex;flex-direction:column;gap:5px;max-height:170px;overflow-y:auto}
+.hist-item{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:12.5px}
+.hist-item span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.hist-item button{color:var(--sub);font-size:13px}
+select,input[type=range]{width:100%}
+select{background:#1b2436;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:12.5px;outline:none}
+.setting{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;margin:7px 0;gap:10px}
+.swatches{display:flex;gap:9px;margin-top:6px}
+.sw{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.7)}
+.field{width:100%;background:#1b2436;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:12.5px;outline:none;margin-bottom:6px}
+.note{font-size:11px;color:var(--sub);line-height:1.45;margin-top:4px}
 
-    .sidebar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 84%;
-      max-width: 340px;
-      height: 100%;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--card-border);
-      z-index: 101;
-      transform: translateX(-100%);
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex;
-      flex-direction: column;
-      padding: 18px 14px;
-      overflow-y: auto;
-    }
-    .sidebar.open { transform: translateX(0); }
+/* ---------- JARVIS ---------- */
+.hud{position:absolute;top:60px;left:10px;right:10px;z-index:15;display:none;flex-direction:column;gap:10px;padding:14px;border-radius:16px;background:rgba(5,9,16,.96);border:1px solid var(--accent-2);box-shadow:0 0 28px rgba(34,211,238,.25)}
+.hud.on{display:flex}
+.hud-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;letter-spacing:1px;color:var(--accent-2)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.metric{background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);border-radius:10px;padding:9px;text-align:center}
+.metric b{display:block;font-size:15px;color:var(--accent-2)}
+.metric span{font-size:10px;color:var(--sub);text-transform:uppercase}
+#screenVideo{display:none;width:100%;height:120px;object-fit:cover;background:#000;border-radius:10px;border:1px solid var(--accent-2)}
 
-    .sidebar-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--card-border);
-    }
-
-    .btn-new-chat {
-      width: 100%;
-      padding: 10px 14px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .sidebar-section-title {
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      color: var(--text-sub);
-      letter-spacing: 1px;
-      margin: 12px 0 6px;
-    }
-
-    .chat-history-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-height: 140px;
-      overflow-y: auto;
-      margin-bottom: 8px;
-    }
-
-    .history-item {
-      padding: 8px 10px;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.03);
-      font-size: 12.5px;
-      color: var(--text-main);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .history-item:hover { background: rgba(255,255,255,0.08); }
-
-    .select-custom {
-      width: 100%;
-      background: #1e293b;
-      border: 1px solid var(--card-border);
-      color: white;
-      padding: 9px 10px;
-      border-radius: 8px;
-      font-size: 12.5px;
-      outline: none;
-      margin-bottom: 8px;
-    }
-
-    .range-box {
-      background: rgba(255,255,255,0.03);
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-
-    .sub-box {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-top: 6px;
-    }
-    .sub-box.active-vip { border-color: #10b981; background: rgba(16, 185, 129, 0.15); }
-    .sub-box.active-pro { border-color: var(--pro-gold); background: rgba(245, 158, 11, 0.15); }
-
-    .btn-sub-action {
-      width: 100%;
-      padding: 8px;
-      margin-top: 8px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      border: none;
-    }
-
-    .theme-presets {
-      display: flex;
-      gap: 8px;
-      margin: 8px 0;
-    }
-    .theme-circle {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid white;
-    }
-
-    /* ================= HUD J.A.R.V.I.S. ================= */
-    .jarvis-panel {
-      position: absolute;
-      top: 60px;
-      left: 10px;
-      right: 10px;
-      background: rgba(3, 7, 18, 0.96);
-      border: 1px solid var(--jarvis-cyan);
-      box-shadow: 0 0 25px var(--jarvis-glow);
-      border-radius: 16px;
-      padding: 16px;
-      z-index: 40;
-      display: none;
-      flex-direction: column;
-      gap: 10px;
-      backdrop-filter: blur(12px);
-    }
-    .jarvis-panel.active { display: flex; }
-
-    .jarvis-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 4px 0;
-    }
-
-    .jarvis-metric {
-      background: rgba(0, 242, 254, 0.08);
-      border: 1px solid rgba(0, 242, 254, 0.25);
-      border-radius: 8px;
-      padding: 8px;
-      text-align: center;
-    }
-
-    .jarvis-metric-val { font-size: 16px; font-weight: 900; color: var(--jarvis-cyan); }
-    .jarvis-metric-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-top: 2px; }
-
-    #screen-stream-video {
-      width: 100%;
-      height: 120px;
-      background: black;
-      border-radius: 8px;
-      object-fit: cover;
-      display: none;
-      border: 1px solid var(--jarvis-cyan);
-    }
-
-    /* ================= ONBOARDING & PERMESSI ================= */
-    .onboarding-screen {
-      position: absolute;
-      inset: 0;
-      z-index: 50;
-      background: linear-gradient(180deg, rgba(10,14,20,0.5) 0%, rgba(10,14,20,0.96) 75%),
-                  url('https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=900&auto=format&fit=crop&q=80') center/cover;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      padding: 24px 20px;
-      transition: transform 0.4s ease, opacity 0.4s ease;
-    }
-    .onboarding-screen.hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
-
-    .hero-title { font-size: 36px; line-height: 1.1; font-weight: 900; margin-bottom: 12px; color: #ffffff; }
-    .hero-sub { font-size: 14px; line-height: 1.5; color: #cbd5e1; margin-bottom: 20px; }
-
-    .btn-google {
-      width: 100%;
-      padding: 13px;
-      background: #ffffff;
-      color: #111827;
-      border: none;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      cursor: pointer;
-      margin-bottom: 10px;
-    }
-
-    .email-vip-box { display: flex; gap: 6px; margin-bottom: 8px; }
-    .email-vip-input {
-      flex: 1;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.25);
-      border-radius: 10px;
-      padding: 10px 12px;
-      color: white;
-      font-size: 13.5px;
-      outline: none;
-    }
-    .btn-vip-login {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0 14px;
-      border-radius: 10px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .step-modal {
-      position: absolute;
-      inset: 0;
-      background: rgba(3, 7, 18, 0.96);
-      backdrop-filter: blur(12px);
-      z-index: 60;
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-    }
-    .step-modal.active { display: flex; }
-
-    .btn-action-step {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      margin-bottom: 10px;
-    }
-    .btn-skip { background: transparent; border: none; color: #64748b; font-size: 13px; cursor: pointer; text-decoration: underline; }
-
-    /* ================= HEADER & CHAT ================= */
-    .chat-header {
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(10px);
-      padding: 10px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--card-border);
-      z-index: 10;
-    }
-
-    .header-left { display: flex; align-items: center; gap: 10px; }
-    .btn-hamburger { background: none; border: none; color: var(--text-main); font-size: 22px; cursor: pointer; }
-
-    .ai-model-badge {
-      font-size: 10px;
-      background: rgba(37, 99, 235, 0.2);
-      color: #60a5fa;
-      border: 1px solid rgba(96, 165, 250, 0.4);
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-weight: 800;
-    }
-
-    .btn-jarvis-toggle {
-      background: rgba(0, 242, 254, 0.15);
-      border: 1px solid var(--jarvis-cyan);
-      color: var(--jarvis-cyan);
-      padding: 5px 9px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .btn-jarvis-toggle.active { background: var(--jarvis-cyan); color: black; box-shadow: 0 0 12px var(--jarvis-glow); }
-
-    .chat-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .msg-row { display: flex; flex-direction: column; max-width: 92%; }
-    .msg-row.user { align-self: flex-end; }
-    .msg-row.ai { align-self: flex-start; width: 100%; max-width: 400px; }
-
-    .bubble { padding: 12px 14px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
-    .bubble.user { background: var(--user-bubble); color: white; border-bottom-right-radius: 4px; }
-    .bubble.ai { background: var(--ai-bubble); border: 1px solid var(--card-border); color: var(--text-main); border-bottom-left-radius: 4px; }
-
-    /* CARD MULTIMEDIALI */
-    .ai-rich-card {
-      background: #0f172a;
-      border-radius: 14px;
-      border: 1px solid var(--card-border);
-      overflow: hidden;
-      margin-top: 10px;
-    }
-
-    .card-banner {
-      width: 100%;
-      height: 160px;
-      object-fit: cover;
-      background: #1e293b;
-      display: block;
-    }
-
-    .card-body { padding: 14px; }
-
-    .news-bullet-item {
-      background: rgba(255,255,255,0.03);
-      border-left: 3px solid #ef4444;
-      padding: 8px 10px;
-      margin: 6px 0;
-      border-radius: 4px;
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .card-btn-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      padding: 10px 12px;
-      background: rgba(0,0,0,0.3);
-      border-top: 1px solid var(--card-border);
-    }
-
-    .card-btn {
-      flex: 1;
-      min-width: 110px;
-      padding: 9px 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 700;
-      text-align: center;
-      cursor: pointer;
-      border: none;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-main { background: var(--accent); color: white; }
-    .btn-tg5 { background: #e11d48; color: white; }
-    .btn-sky { background: #0284c7; color: white; }
-    .btn-voice { background: #059669; color: white; }
-    .btn-ghost { background: rgba(255,255,255,0.1); color: white; }
-
-    /* CHIPS SUGGERIMENTI */
-    .quick-chips {
-      padding: 8px 12px;
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .quick-chips::-webkit-scrollbar { display: none; }
-    .chip-item {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      white-space: nowrap;
-      cursor: pointer;
-      color: #cbd5e1;
-    }
-
-    /* INPUT BAR */
-    .chat-input-bar {
-      padding: 10px 14px;
-      background: #0f172a;
-      border-top: 1px solid var(--card-border);
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .input-field {
-      flex: 1;
-      background: #1e293b;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 24px;
-      padding: 11px 16px;
-      color: white;
-      font-size: 14.5px;
-      outline: none;
-    }
-
-    .btn-send-circle {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: white;
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-
-    .typing-box {
-      font-size: 12px;
-      color: var(--text-sub);
-      padding: 6px 16px;
-      display: none;
-    }
-  </style>
+/* ---------- Welcome ---------- */
+.welcome{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;justify-content:flex-end;padding:26px 22px;background:linear-gradient(180deg,rgba(11,15,23,.2),var(--bg) 70%),radial-gradient(circle at 70% 10%,rgba(59,130,246,.45),transparent 55%);transition:transform .4s,opacity .4s}
+.welcome.hide{transform:translateY(-100%);opacity:0;pointer-events:none}
+.welcome h1{font-size:34px;line-height:1.1;font-weight:800;margin-bottom:10px}
+.welcome p{font-size:14px;line-height:1.55;color:#b6c2d4;margin-bottom:18px}
+.welcome .btn{padding:14px;font-size:15px;border-radius:12px;margin-bottom:8px}
+.toast{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);background:#1f2a40;border:1px solid var(--line);padding:9px 14px;border-radius:10px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:40;max-width:86%;text-align:center}
+.toast.on{opacity:1}
+</style>
 </head>
 <body>
+<div class="app" id="app">
 
-  <div class="app-viewport" id="viewport">
+  <!-- Sidebar -->
+  <div class="overlay" id="overlay"></div>
+  <aside id="side">
+    <div class="side-top"><span>⚡ Omni AI</span><button class="icon-btn" id="closeSide">✕</button></div>
+    <button class="btn" id="newChat">+ Nuova conversazione</button>
 
-    <!-- OVERLAY & SIDEBAR -->
-    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
-    
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <div style="font-weight: 800; font-size: 16px; display:flex; align-items:center; gap:6px;">
-          <span>⚡ Omni Core Enterprise</span>
-        </div>
-        <button style="background:none; border:none; color:white; font-size:18px; cursor:pointer;" onclick="toggleSidebar(false)">✕</button>
-      </div>
+    <div class="sec">Cronologia</div>
+    <div class="hist" id="hist"></div>
 
-      <button class="btn-new-chat" onclick="startNewChat()">+ Nuova Sessione</button>
+    <div class="sec">Modello</div>
+    <input id="modelName" class="field" placeholder="Nome modello (es. openai)" />
+    <input id="apiEndpoint" class="field" placeholder="Endpoint (vuoto = Pollinations gratuito)" />
+    <input id="apiKey" class="field" type="password" placeholder="Chiave API (opzionale)" />
+    <p class="note"><b>Senza chiave:</b> funziona direttamente tramite il canale gratuito. <b>Con chiave:</b> puoi usare Groq (<code>gsk_...</code>), Google Gemini o OpenAI incollando chiave, endpoint e modello.</p>
+    <button class="btn ghost" id="testAi" style="margin-top:8px">Verifica connessione IA</button>
 
-      <div class="sidebar-section-title">Cronologia Sessioni</div>
-      <div class="chat-history-list" id="chat-history-list">
-        <div class="history-item" onclick="loadSession('📺 Notizie del TG5 di oggi')">📺 Notizie del TG5 di oggi</div>
-        <div class="history-item" onclick="loadSession('🚗 Macchina volante Tesla')">🚗 Macchina volante Tesla</div>
-        <div class="history-item" onclick="loadSession('🥣 Cereali a prezzo basso')">🥣 Cereali a prezzo basso</div>
-      </div>
+    <div class="sec">Voce</div>
+    <div class="setting"><span>Lettura automatica</span><input type="checkbox" id="autoSpeak" /></div>
+    <div class="setting"><span>Velocità</span><input type="range" id="rate" min="0.7" max="1.4" step="0.05" value="1" style="width:55%" /></div>
+    <div class="setting"><span>Voce</span><select id="voiceSel" style="width:60%"></select></div>
 
-      <div class="sidebar-section-title">Modello IA Attivo</div>
-      <select class="select-custom" id="ai-model-select" onchange="updateModelName()">
-        <option value="chatgpt-5.6" selected>🧠 ChatGPT 5.6 (Quantum Engine)</option>
-        <option value="deepseek-r1">⚡ DeepSeek R1 (Full Logic)</option>
-        <option value="claude-3.7">🎭 Claude 3.7 Sonnet (Hybrid)</option>
-        <option value="gpt-4o">🌐 GPT-4o Enterprise</option>
-      </select>
+    <div class="sec">Aspetto</div>
+    <div class="swatches" id="swatches"></div>
 
-      <div class="sidebar-section-title">Quantità di Intelligenza (Reasoning)</div>
-      <div class="range-box">
-        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
-          <span>Livello:</span>
-          <b id="reasoning-label" style="color:var(--jarvis-cyan);">Massima (Totale)</b>
-        </div>
-        <input type="range" id="reasoning-slider" min="1" max="3" value="3" style="width:100%; cursor:pointer;" onchange="updateReasoningEffort(this.value)">
-        <div style="font-size:10px; color:#94a3b8; margin-top:4px;" id="reasoning-note">
-          ⚠️ Livello Massimo: su piano gratuito consuma tutti i crediti rimanenti in 1 sola richiesta.
-        </div>
-      </div>
+    <div class="sec">Dati</div>
+    <div class="setting"><span>Posizione (opzionale)</span><button class="chipbtn" id="gpsBtn">Attiva</button></div>
+    <div class="setting"><span>Notifiche</span><button class="chipbtn" id="notifBtn">Attiva</button></div>
+    <button class="btn ghost" id="clearAll" style="margin-top:14px">Cancella tutti i dati locali</button>
+  </aside>
 
-      <div class="sidebar-section-title">Gestione Abbonamento</div>
-      <div class="sub-box active-vip" id="sub-management-box">
-        <div style="font-size: 13px; font-weight: bold;" id="sub-status-title">💎 VIP Fondatore Attivo</div>
-        <div style="font-size: 11px; color: #cbd5e1; margin-top:2px;" id="sub-status-desc">Accesso gratuito a vita senza limiti.</div>
-        <button class="btn-sub-action" id="btn-toggle-sub" style="display:none;" onclick="toggleSubscription()">Gestisci Abbonamento</button>
-      </div>
-
-      <div class="sidebar-section-title">Temi & Personalizzazione</div>
-      <div class="theme-presets">
-        <div class="theme-circle" style="background: #2563eb;" title="Scuro Moderno" onclick="applyTheme('dark')"></div>
-        <div class="theme-circle" style="background: #25d366;" title="WhatsApp Style" onclick="applyTheme('whatsapp')"></div>
-        <div class="theme-circle" style="background: #8b5cf6;" title="Deep Purple" onclick="applyTheme('purple')"></div>
-        <div class="theme-circle" style="background: #00f2fe;" title="Cyber Neon" onclick="applyTheme('cyber')"></div>
-      </div>
-      <div style="display:flex; align-items:center; justify-content:space-between; font-size:12px; margin-top:6px;">
-        <span>Colore personalizzato:</span>
-        <input type="color" id="accent-picker" value="#2563eb" onchange="changeCustomAccent(this.value)" style="cursor:pointer; border:none; background:none; width:30px; height:30px;">
-      </div>
-    </aside>
-
-    <!-- HUD MODALITÀ J.A.R.V.I.S. -->
-    <div class="jarvis-panel" id="jarvis-hud">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="color:var(--jarvis-cyan); font-weight:900; font-size:13px; letter-spacing:1px;">J.A.R.V.I.S. TELEMETRIA DISPOSITIVO</span>
-        <button style="background:none; border:none; color:white; cursor:pointer;" onclick="toggleJarvisMode()">✕</button>
-      </div>
-      
-      <div class="jarvis-grid">
-        <div class="jarvis-metric">
-          <div class="jarvis-metric-val" id="hud-ram">8 GB</div>
-          <div class="jarvis-metric-lbl">RAM Hardware</div>
-        </div>
-        <div class="jarvis-metric">
-          <div class="jarvis-metric-val" id="hud-battery">100% ⚡</div>
-          <div class="jarvis-metric-lbl">Alimentazione</div>
-        </div>
-        <div class="jarvis-metric">
-          <div class="jarvis-metric-val" id="hud-temp">36.2 °C</div>
-          <div class="jarvis-metric-lbl">Temp Stimata</div>
-        </div>
-        <div class="jarvis-metric">
-          <div class="jarvis-metric-val" id="hud-status">ATTIVO 100%</div>
-          <div class="jarvis-metric-lbl">Monitoraggio</div>
-        </div>
-      </div>
-
-      <video id="screen-stream-video" autoplay muted></video>
-      <button class="card-btn btn-main" style="background:#0891b2;" onclick="startScreenShare()">
-        🖥️ Condividi Schermo per Risposte Istantanee
-      </button>
+  <!-- JARVIS HUD -->
+  <div class="hud" id="hud">
+    <div class="hud-head"><span>J.A.R.V.I.S. · DISPOSITIVO</span><button id="closeHud">✕</button></div>
+    <div class="grid">
+      <div class="metric"><b id="mRam">—</b><span>Memoria</span></div>
+      <div class="metric"><b id="mCpu">—</b><span>Core CPU</span></div>
+      <div class="metric"><b id="mBat">—</b><span>Batteria</span></div>
+      <div class="metric"><b id="mNet">—</b><span>Rete</span></div>
     </div>
-
-    <!-- ONBOARDING & LOGIN SCREEN -->
-    <section class="onboarding-screen" id="screen-login">
-      <div style="color: #00f2fe; font-weight: 800; font-size: 13px; margin-bottom: 8px;">⚡ OMNI 5.6 ULTRA & J.A.R.V.I.S.</div>
-      <h1 class="hero-title">Intelligenza<br>Senza Limiti.</h1>
-      <p class="hero-sub">ChatGPT 5.6 collegato ai telegiornali in diretta, ricerca prezzi supermercati e telemetria J.A.R.V.I.S.</p>
-
-      <button class="btn-google" onclick="openGoogleAuth()">
-        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-        Continua con Google
-      </button>
-
-      <div class="email-vip-box">
-        <input type="email" id="email-login-field" class="email-vip-input" value="chrichri071112@gmail.com" />
-        <button class="btn-vip-login" onclick="loginWithEmail()">Entra</button>
-      </div>
-    </section>
-
-    <!-- MODAL PERMESSO GPS -->
-    <div class="step-modal" id="modal-gps">
-      <div style="font-size: 48px; margin-bottom: 12px;">📍</div>
-      <h2 style="margin-bottom: 8px;">Attiva il GPS</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Necessario per confrontare i prezzi dei supermercati e negozi vicino a te.</p>
-      <button class="btn-action-step" onclick="requestGps()">Consenti Posizione GPS</button>
-      <button class="btn-skip" onclick="goToStep('notifications')">Salta per ora</button>
-    </div>
-
-    <!-- MODAL PERMESSO NOTIFICHE -->
-    <div class="step-modal" id="modal-notifications">
-      <div style="font-size: 48px; margin-bottom: 12px;">🔔</div>
-      <h2 style="margin-bottom: 8px;">Attiva Notifiche Flash</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Ricevi gli aggiornamenti del TG e le offerte della spesa in tempo reale.</p>
-      <button class="btn-action-step" onclick="requestNotifications()">Attiva Notifiche</button>
-      <button class="btn-skip" onclick="goToStep('chat')">Più tardi</button>
-    </div>
-
-    <!-- HEADER PRINCIPALE -->
-    <header class="chat-header">
-      <div class="header-left">
-        <button class="btn-hamburger" onclick="toggleSidebar(true)">☰</button>
-        <div>
-          <div style="font-size: 14px; font-weight: 800; display:flex; align-items:center; gap:6px;">
-            <span>Omni AI</span>
-            <span class="ai-model-badge" id="header-model-badge">ChatGPT 5.6</span>
-          </div>
-          <div style="font-size: 10px; color: #10b981;" id="header-user-status">💎 VIP Fondatore • Illimitato</div>
-        </div>
-      </div>
-
-      <button class="btn-jarvis-toggle" id="btn-jarvis" onclick="toggleJarvisMode()">
-        ⚡ J.A.R.V.I.S.
-      </button>
-    </header>
-
-    <!-- AREA CHAT SCORREVOLE -->
-    <main class="chat-scroll" id="chat">
-      <div class="msg-row ai">
-        <div class="bubble ai">
-          Sistemi online e collegati a <b>ChatGPT 5.6</b>. 🧠<br><br>
-          Puoi chiedermi <b>le notizie del TG5 o l'attualità di oggi</b>, i progetti sulle <b>macchine volanti Tesla</b>, le offerte della spesa o attivare <b>J.A.R.V.I.S.</b>!
-        </div>
-      </div>
-    </main>
-
-    <div class="typing-box" id="typing-box">
-      <span>Omni sta consultando i feed in tempo reale ed elaborando il dossier...</span>
-    </div>
-
-    <!-- QUICK CHIPS -->
-    <div class="quick-chips">
-      <div class="chip-item" onclick="sendPrompt('dammi tutte le notizie del tg5 di oggi')">📺 Notizie TG5 oggi</div>
-      <div class="chip-item" onclick="sendPrompt('parlami della macchina volante inventata dalla tesla')">🚗 Macchina volante Tesla</div>
-      <div class="chip-item" onclick="sendPrompt('cereali per la mattina a prezzo basso vicino a me')">🥣 Cereali economici</div>
-      <div class="chip-item" onclick="sendPrompt('spiegami come funziona un reattore a fusione nucleare')">🔬 Fusione Nucleare</div>
-    </div>
-
-    <!-- BARRA INPUT -->
-    <footer class="chat-input-bar">
-      <input type="text" id="user-input" class="input-field" placeholder="Chiedi al TG5, spesa, tecnologia o qualsiasi cosa..." onkeydown="onKey(event)" />
-      <button class="btn-send-circle" onclick="submitMessage()">➤</button>
-    </footer>
-
+    <video id="screenVideo" autoplay muted playsinline></video>
+    <button class="btn" id="shareBtn" style="background:#0891b2">🖥️ Condividi schermo</button>
+    <p class="note">I dati sono letti dal browser; se un valore non è disponibile viene mostrato “—”. La condivisione schermo resta locale: nulla viene inviato all'IA.</p>
   </div>
 
-  <script>
-    // STATO GLOBALE
-    let isPro = true;
-    let isVip = true;
-    let dailyCredits = 999999;
-    let reasoningLevel = 3;
-    let activeModel = "ChatGPT 5.6";
-    let isSpeaking = false;
-    let jarvisActive = false;
-    let userCity = "Italia (Centro)";
+  <!-- Welcome -->
+  <section class="welcome" id="welcome">
+    <div style="color:var(--accent-2);font-weight:800;font-size:12px;letter-spacing:1.5px;margin-bottom:8px">OMNI AI</div>
+    <h1>Informazione chiara.<br>Risposte affidabili.</h1>
+    <p>Notizie dalle agenzie italiane in tempo reale, spiegazioni basate su fonti e voce naturale. Dove non ho dati, te lo dico.</p>
+    <button class="btn" id="startBtn">Inizia</button>
+  </section>
 
-    // ARCHIVIO FOTOGRAFICO PROFESSIONALE AD ALTA DEFINIZIONE (Niente anime o ritratti casuali)
-    const REAL_IMAGES = {
-      tg5: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=700&auto=format&fit=crop&q=80",
-      news: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=700&auto=format&fit=crop&q=80",
-      tesla: "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=700&auto=format&fit=crop&q=80",
-      car: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=700&auto=format&fit=crop&q=80",
-      supermarket: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=700&auto=format&fit=crop&q=80",
-      cereals: "https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=700&auto=format&fit=crop&q=80",
-      tech: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=700&auto=format&fit=crop&q=80",
-      science: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=700&auto=format&fit=crop&q=80"
+  <!-- Header -->
+  <header>
+    <div class="h-left">
+      <button class="icon-btn" id="openSide" aria-label="Menu">☰</button>
+      <div>
+        <div class="title">Omni AI</div>
+        <div class="status"><span class="dot" id="netDot"></span><span id="netTxt">Online</span></div>
+      </div>
+    </div>
+    <button class="pill" id="jarvisBtn">⚡ J.A.R.V.I.S.</button>
+  </header>
+
+  <main id="chat" aria-live="polite"></main>
+  <div class="typing" id="typing"><i></i><i></i><i></i> <span id="typingTxt">Sto elaborando…</span></div>
+
+  <div class="chips" id="chips"></div>
+  <footer class="composer">
+    <button class="round" id="micBtn" aria-label="Dettatura">🎙️</button>
+    <input id="input" type="text" placeholder="Scrivi una domanda…" autocomplete="off" />
+    <button class="round send" id="sendBtn" aria-label="Invia">➤</button>
+  </footer>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   OMNI AI — struttura
+   1. Config e stato        4. Notizie (RSS) e conoscenza (Wikipedia)
+   2. Utility               5. Motore IA con contesto e cronologia
+   3. Voce (TTS + STT)      6. Interfaccia, sessioni, impostazioni
+   ===================================================================== */
+
+/* ---------- 1. CONFIG E STATO ---------- */
+const CFG = {
+  defaultEndpoint: "https://gen.pollinations.ai/v1/chat/completions",
+  rssProxy:   "https://api.rss2json.com/v1/api.json?rss_url=",
+  timeoutMs:  25000,
+  maxHistory: 10,
+  maxSessions: 30,
+  feeds: {
+    top:       { label: "Ultime notizie", url: "https://www.ansa.it/sito/notizie/topnews/topnews_rss.xml" },
+    politica:  { label: "Politica",       url: "https://www.ansa.it/sito/notizie/politica/politica_rss.xml" },
+    economia:  { label: "Economia",       url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml" },
+    mondo:     { label: "Mondo",          url: "https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml" },
+    cronaca:   { label: "Cronaca",        url: "https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml" },
+    sport:     { label: "Sport",          url: "https://www.ansa.it/sito/notizie/sport/sport_rss.xml" },
+    tecnologia:{ label: "Tecnologia",     url: "https://www.ansa.it/sito/notizie/tecnologia/tecnologia_rss.xml" }
+  },
+  themes: [
+    { n: "Blu",    a: "#3b82f6", u: "#2563eb" },
+    { n: "Verde",  a: "#10b981", u: "#047857" },
+    { n: "Viola",  a: "#8b5cf6", u: "#7c3aed" },
+    { n: "Ciano",  a: "#22d3ee", u: "#0e7490" }
+  ]
+};
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  wipe()    { try { localStorage.clear(); } catch {} }
+};
+
+const state = {
+  sessions: store.get("omni.sessions", []),
+  currentId: null,
+  settings: Object.assign({ model: "openai", endpoint: "", apiKey: "", autoSpeak: false, rate: 1, voice: "", theme: 0 }, store.get("omni.settings", {})),
+  coords: null,
+  busy: false
+};
+
+/* ---------- 2. UTILITY ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.classList.remove("on"), 2600);
+}
+
+async function fetchRaw(url, opts = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CFG.timeoutMs);
+  try { return await fetch(url, Object.assign({ signal: ctrl.signal }, opts)); }
+  finally { clearTimeout(timer); }
+}
+
+async function fetchJson(url, opts = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CFG.timeoutMs);
+  try {
+    const res = await fetch(url, Object.assign({ signal: ctrl.signal }, opts));
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.json();
+  } finally { clearTimeout(timer); }
+}
+
+function renderMd(text) {
+  const lines = esc(text).split("\n");
+  let html = "", inList = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    const li = line.match(/^[-*•]\s+(.*)/);
+    if (li) {
+      if (!inList) { html += "<ul>"; inList = true; }
+      html += "<li>" + inline(li[1]) + "</li>";
+    } else {
+      if (inList) { html += "</ul>"; inList = false; }
+      if (line) html += "<p>" + inline(line) + "</p>";
+    }
+  }
+  if (inList) html += "</ul>";
+  return html;
+  function inline(s) { return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
+}
+
+function plainText(md) {
+  return md.replace(/\*\*/g, "").replace(/^[-*•]\s+/gm, "").replace(/\s+/g, " ").trim();
+}
+
+function timeAgo(dateStr) {
+  const d = new Date(String(dateStr).replace(" ", "T") + (String(dateStr).includes("T") || String(dateStr).includes("Z") ? "" : "Z"));
+  if (isNaN(d)) return "";
+  const m = Math.round((Date.now() - d.getTime()) / 60000);
+  if (m < 1) return "adesso";
+  if (m < 60) return m + " min fa";
+  if (m < 1440) return Math.round(m / 60) + " h fa";
+  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+
+function todayLabel() {
+  return new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+/* ---------- 3. VOCE ---------- */
+const Voice = {
+  speaking: false,
+  voices: [],
+  queue: [],
+
+  init() {
+    if (!("speechSynthesis" in window)) return;
+    const load = () => { this.voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith("it")); this.fillSelect(); };
+    load();
+    speechSynthesis.onvoiceschanged = load;
+  },
+
+  fillSelect() {
+    const sel = $("voiceSel");
+    sel.innerHTML = '<option value="">Automatica</option>' +
+      this.voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)}</option>`).join("");
+    sel.value = state.settings.voice || "";
+  },
+
+  pick() {
+    if (state.settings.voice) {
+      const chosen = this.voices.find(v => v.name === state.settings.voice);
+      if (chosen) return chosen;
+    }
+    const prefer = ["natural", "neural", "google", "elsa", "alice", "luca", "cosimo", "premium", "enhanced"];
+    for (const key of prefer) {
+      const v = this.voices.find(v => v.name.toLowerCase().includes(key));
+      if (v) return v;
+    }
+    return this.voices[0] || null;
+  },
+
+  chunk(text) {
+    const parts = text.match(/[^.!?;:]+[.!?;:]?/g) || [text];
+    const out = []; let buf = "";
+    for (const p of parts) {
+      if ((buf + p).length > 190 && buf) { out.push(buf.trim()); buf = p; }
+      else buf += p;
+    }
+    if (buf.trim()) out.push(buf.trim());
+    return out;
+  },
+
+  speak(text, onEnd) {
+    if (!("speechSynthesis" in window)) { toast("Sintesi vocale non supportata."); return; }
+    this.stop();
+    const clean = plainText(text)
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/(\d+),(\d+)/g, "$1 virgola $2")
+      .replace(/%/g, " per cento")
+      .replace(/€/g, " euro");
+    this.queue = this.chunk(clean);
+    this.speaking = true;
+    const voice = this.pick();
+    const next = () => {
+      if (!this.speaking || !this.queue.length) { this.speaking = false; onEnd && onEnd(); return; }
+      const u = new SpeechSynthesisUtterance(this.queue.shift());
+      u.lang = "it-IT";
+      u.rate = Number(state.settings.rate) || 1;
+      u.pitch = 1;
+      if (voice) u.voice = voice;
+      u.onend = next;
+      u.onerror = () => { this.speaking = false; onEnd && onEnd(); };
+      speechSynthesis.speak(u);
     };
+    next();
+  },
 
-    // GESTIONE ACCESSO & VIP
-    function loginWithEmail() {
-      const email = document.getElementById('email-login-field').value.trim().toLowerCase();
-      if (email === "chrichri071112@gmail.com") {
-        isPro = true;
-        isVip = true;
-        dailyCredits = 999999;
-        document.getElementById('header-user-status').innerText = "💎 VIP Fondatore • Illimitato";
+  stop() {
+    this.speaking = false;
+    this.queue = [];
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  },
+
+  rec: null,
+  listen(onResult, onState) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast("Dettatura non supportata da questo browser."); return; }
+    if (this.rec) { this.rec.stop(); return; }
+    const r = new SR();
+    r.lang = "it-IT";
+    r.interimResults = true;
+    r.continuous = false;
+    r.onstart = () => onState(true);
+    r.onresult = e => onResult(Array.from(e.results).map(x => x[0].transcript).join(""), e.results[e.results.length - 1].isFinal);
+    r.onerror = e => { if (e.error === "not-allowed") toast("Permesso microfono negato."); };
+    r.onend = () => { this.rec = null; onState(false); };
+    this.rec = r;
+    r.start();
+  }
+};
+
+/* ---------- 4. NOTIZIE E CONOSCENZA ---------- */
+const News = {
+  cache: {},
+
+  detectTopic(q) {
+    const t = q.toLowerCase();
+    const map = [
+      ["politica",   /politic|governo|parlamento|elezion|premier|ministr|manovra|legge/],
+      ["economia",   /econom|borsa|inflazion|spread|pil|mercat|tasse|lavoro|stipend/],
+      ["mondo",      /mondo|esteri|guerra|ucraina|gaza|israel|usa|trump|cina|europa|ue\b|onu|nato/],
+      ["cronaca",    /cronaca|incidente|omicid|arrest|maltempo|terremoto|processo/],
+      ["sport",      /sport|calcio|serie a|champions|tennis|formula 1|f1|olimpiad/],
+      ["tecnologia", /tecnolog|intelligenza artificiale|\bia\b|smartphone|spazio|nasa|software/]
+    ];
+    for (const [key, re] of map) if (re.test(t)) return key;
+    return "top";
+  },
+
+  isNewsQuery(q) {
+    return /notizi|attualit|tg5|tg\b|telegiornal|oggi|ultime|ultima ora|cosa succede|breaking|cronaca|accaduto|news/.test(q.toLowerCase());
+  },
+
+  async load(topic) {
+    const hit = this.cache[topic];
+    if (hit && Date.now() - hit.t < 5 * 60000) return hit.items;
+    const feed = CFG.feeds[topic] || CFG.feeds.top;
+    const data = await fetchJson(CFG.rssProxy + encodeURIComponent(feed.url));
+    const items = (data.items || []).slice(0, 8).map(i => ({
+      title: (i.title || "").trim(),
+      link: i.link,
+      date: i.pubDate,
+      desc: String(i.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 280),
+      source: "ANSA"
+    })).filter(i => i.title);
+    this.cache[topic] = { t: Date.now(), items };
+    return items;
+  }
+};
+
+const Knowledge = {
+  async lookup(query) {
+    try {
+      const clean = query.replace(/[?!.]/g, " ").replace(/\b(parlami|spiegami|cos'è|cosa è|come funziona|dimmi|di|del|della|un|una|il|lo|la)\b/gi, " ").replace(/\s+/g, " ").trim();
+      if (clean.length < 3) return null;
+      const s = await fetchJson(`https://it.wikipedia.org/w/api.php?action=query&list=search&srlimit=1&format=json&origin=*&srsearch=${encodeURIComponent(clean)}`);
+      const title = s.query && s.query.search && s.query.search[0] && s.query.search[0].title;
+      if (!title) return null;
+      const sum = await fetchJson(`https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+      if (!sum.extract) return null;
+      return { title: sum.title, text: sum.extract.slice(0, 1200), url: sum.content_urls && sum.content_urls.desktop && sum.content_urls.desktop.page };
+    } catch { return null; }
+  }
+};
+
+/* ---------- 5. MOTORE IA ---------- */
+function systemPrompt(extra) {
+  return [
+    "Sei Omni AI, un assistente italiano competente, sobrio e onesto.",
+    `Data di oggi: ${todayLabel()}.`,
+    "Regole:",
+    "1. Rispondi sempre in italiano corretto, in modo chiaro e ben strutturato (frasi brevi, elenchi puntati quando servono, grassetto solo per i concetti chiave).",
+    "2. Parti dalla risposta, poi aggiungi contesto. Evita giri di parole, slogan e toni enfatici.",
+    "3. Per l'attualità usa ESCLUSIVAMENTE i titoli e le fonti forniti nel blocco CONTESTO. Non inventare fatti, numeri, citazioni o dichiarazioni. Se il contesto non basta, dillo apertamente.",
+    "4. Distingui fatti accertati, interpretazioni e previsioni. Su temi controversi presenta le posizioni principali in modo equilibrato.",
+    "5. Se non sei sicuro o la tua conoscenza potrebbe essere superata, segnalalo in una frase.",
+    "6. Non fingere di avere accesso a dati che non hai (TG5 in diretta, prezzi dei negozi, posizione precisa).",
+    "7. Per salute, legge e finanza fornisci informazioni generali e consiglia un professionista quando serve.",
+    extra ? "\nCONTESTO:\n" + extra : ""
+  ].join("\n");
+}
+
+async function askAI(history, context) {
+  const key = (state.settings.apiKey || "").trim();
+  const endpoint = (state.settings.endpoint || "").trim();
+  const model = (state.settings.model || "openai").trim();
+  const sys = systemPrompt(context);
+
+  // CASO 1: L'utente ha inserito una chiave API o un endpoint dedicato (Groq, OpenAI, Gemini, ecc.)
+  if (key || endpoint) {
+    const url = endpoint || CFG.defaultEndpoint;
+    const headers = { "Content-Type": "application/json" };
+    if (key) headers.Authorization = "Bearer " + key;
+
+    const messages = [{ role: "system", content: sys }, ...history];
+    let res;
+    try {
+      res = await fetchRaw(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model, messages, temperature: 0.35 })
+      });
+    } catch (e) {
+      throw new Error(e.name === "AbortError" ? "Timeout: il servizio non ha risposto in tempo." : "Errore di connessione (" + e.message + ").");
+    }
+    if (res.status === 401 || res.status === 403) throw new Error("Chiave API non valida o non autorizzata (HTTP " + res.status + ").");
+    if (res.status === 429) throw new Error("Limite richieste raggiunto, riprova tra poco.");
+    if (!res.ok) throw new Error("Errore HTTP " + res.status);
+    const data = await res.json();
+    const out = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    if (!out || out.trim().length < 2) throw new Error("Risposta vuota dal servizio.");
+    return out.trim();
+  }
+
+  // CASO 2: Nessuna chiave inserita -> Accesso diretto al canale pubblico gratuito
+  const lastUserMsg = history.length ? history[history.length - 1].content : "Rispondi: ok";
+  const fullPrompt = `${sys}\n\nRichiesta utente:\n${lastUserMsg}`;
+  
+  try {
+    const res = await fetchRaw(`https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=openai`);
+    if (!res.ok) throw new Error("Server pubblico occupato (HTTP " + res.status + ")");
+    const text = await res.text();
+    if (!text || text.trim().length < 2) throw new Error("Risposta vuota.");
+    return text.trim();
+  } catch (err) {
+    throw new Error("Impossibile contattare l'IA gratuita (" + err.message + "). Inserisci una chiave Groq o Gemini nelle impostazioni.");
+  }
+}
+
+async function respond(query) {
+  const session = currentSession();
+  const history = session.messages
+    .slice(-CFG.maxHistory)
+    .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
+
+  const wantsNews = News.isNewsQuery(query);
+  let context = "", cards = null, sources = [];
+
+  if (wantsNews) {
+    setTyping("Consulto le agenzie di stampa…");
+    const topic = News.detectTopic(query);
+    try {
+      const items = await News.load(topic);
+      if (items.length) {
+        cards = { label: CFG.feeds[topic].label, items };
+        context = "TITOLI RECENTI (fonte ANSA, ordinati dal più recente):\n" + items.map((n, i) =>
+          `${i + 1}. [${timeAgo(n.date)}] ${n.title}${n.desc ? " — " + n.desc : ""}`).join("\n");
       }
-      goToStep('gps');
+    } catch {}
+    if (/tg5/i.test(query)) {
+      context += "\nNOTA: i contenuti del TG5 non sono accessibili in questa app; spiega che i titoli mostrati provengono da ANSA e rimanda al sito ufficiale del TG5.";
     }
-
-    function openGoogleAuth() {
-      window.open("https://accounts.google.com", "GoogleAuth", "width=500,height=600");
-      setTimeout(() => loginWithEmail(), 700);
+    if (!context) context = "NOTA: al momento non è stato possibile scaricare le notizie. Dillo all'utente e non inventare titoli.";
+  } else {
+    setTyping("Cerco fonti di contesto…");
+    const wiki = await Knowledge.lookup(query);
+    if (wiki) {
+      context = `VOCE ENCICLOPEDICA (Wikipedia: ${wiki.title}):\n${wiki.text}`;
+      sources.push({ title: "Wikipedia · " + wiki.title, url: wiki.url });
     }
+  }
 
-    function goToStep(step) {
-      document.getElementById('screen-login').classList.add('hidden');
-      document.querySelectorAll('.step-modal').forEach(m => m.classList.remove('active'));
-      if (step === 'gps') document.getElementById('modal-gps').classList.add('active');
-      else if (step === 'notifications') document.getElementById('modal-notifications').classList.add('active');
+  setTyping("Elaboro la risposta…");
+  let answer;
+  const instruction = wantsNews
+    ? query + "\n\n(Fai una sintesi ordinata dei fatti principali emersi dal contesto, in 4-6 punti, indicando che la fonte è ANSA. Chiudi con una riga su ciò che non si sa ancora, se rilevante.)"
+    : query;
+  try {
+    answer = await askAI([...history, { role: "user", content: instruction }], context);
+  } catch (err) {
+    answer = "⚠️ **Motore IA non disponibile:** " + err.message + "\n";
+    if (cards) answer += "Ti mostro comunque i titoli più recenti di " + cards.label.toLowerCase() + " qui sotto.";
+    else if (context.startsWith("VOCE")) answer += "Intanto ecco cosa dice l'enciclopedia:\n" + context.split("\n").slice(1).join(" ").slice(0, 700);
+    else answer += "Apri le impostazioni (☰) e controlla endpoint e chiave API.";
+  }
+  return { text: answer, cards, sources };
+}
+
+/* ---------- 6. INTERFACCIA ---------- */
+function currentSession() {
+  let s = state.sessions.find(x => x.id === state.currentId);
+  if (!s) {
+    s = { id: uid(), title: "Nuova conversazione", messages: [], ts: Date.now() };
+    state.sessions.unshift(s);
+    state.currentId = s.id;
+  }
+  return s;
+}
+
+function persist() {
+  state.sessions = state.sessions.slice(0, CFG.maxSessions);
+  store.set("omni.sessions", state.sessions);
+  store.set("omni.settings", state.settings);
+}
+
+function setTyping(txt) {
+  $("typingTxt").textContent = txt || "Sto elaborando…";
+  $("typing").classList.toggle("on", !!txt);
+}
+
+function renderMessage(m) {
+  const row = document.createElement("div");
+  row.className = "row " + (m.role === "user" ? "user" : "ai");
+  if (m.role === "user") {
+    row.innerHTML = `<div class="bubble">${esc(m.text)}</div>`;
+  } else {
+    let html = `<div class="bubble">${renderMd(m.text)}`;
+    if (m.cards && m.cards.items.length) {
+      html += `<div class="news"><div class="news-head">🔴 ${esc(m.cards.label)} · ANSA</div>` +
+        m.cards.items.slice(0, 6).map(n =>
+          `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}<small>${esc(n.source)} · ${esc(timeAgo(n.date))}</small></a>`).join("") +
+        `</div>`;
     }
-
-    function requestGps() {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            userCity = `GPS: ${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
-            goToStep('notifications');
-          },
-          () => goToStep('notifications')
-        );
-      } else {
-        goToStep('notifications');
-      }
+    if (m.sources && m.sources.length) {
+      html += `<div class="actions">` + m.sources.map(s =>
+        `<a class="chipbtn" style="text-decoration:none;color:inherit" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">📚 ${esc(s.title)}</a>`).join("") + `</div>`;
     }
+    html += `<div class="actions"><button class="chipbtn listen">🔊 Ascolta</button><button class="chipbtn copy">📋 Copia</button>`;
+    if (/tg5/i.test(m.query || "")) html += `<a class="chipbtn" style="text-decoration:none;color:inherit" href="https://www.mediasetinfinity.mediaset.it/" target="_blank" rel="noopener noreferrer">📺 Sito TG5</a>`;
+    html += `</div></div>`;
+    row.innerHTML = html;
 
-    function requestNotifications() {
-      if ("Notification" in window) Notification.requestPermission();
-      goToStep('chat');
-    }
+    const listen = row.querySelector(".listen");
+    listen.onclick = () => {
+      if (Voice.speaking) { Voice.stop(); listen.classList.remove("playing"); listen.textContent = "🔊 Ascolta"; return; }
+      listen.classList.add("playing"); listen.textContent = "⏹ Stop";
+      Voice.speak(m.text, () => { listen.classList.remove("playing"); listen.textContent = "🔊 Ascolta"; });
+    };
+    row.querySelector(".copy").onclick = async () => {
+      try { await navigator.clipboard.writeText(plainText(m.text)); toast("Copiato negli appunti"); } catch { toast("Copia non disponibile"); }
+    };
+    row._listen = listen;
+  }
+  $("chat").appendChild(row);
+  $("chat").scrollTop = $("chat").scrollHeight;
+  return row;
+}
 
-    // SIDEBAR & MODELLI
-    function toggleSidebar(open) {
-      document.getElementById('sidebar').classList.toggle('open', open);
-      document.getElementById('sidebar-overlay').classList.toggle('active', open);
-    }
+function renderAll() {
+  $("chat").innerHTML = "";
+  const s = state.sessions.find(x => x.id === state.currentId);
+  if (!s || !s.messages.length) {
+    renderMessage({ role: "ai", text: "Ciao! Posso aiutarti con **notizie di attualità** (da fonti ANSA aggiornate), spiegazioni, studio e curiosità.\n- Chiedimi i fatti del giorno, per tema: politica, economia, mondo, sport.\n- Usa il microfono per dettare e “Ascolta” per sentire le risposte.\nSe non ho dati affidabili su qualcosa, te lo dico." });
+    return;
+  }
+  s.messages.forEach(renderMessage);
+}
 
-    function startNewChat() {
-      document.getElementById('chat').innerHTML = `
-        <div class="msg-row ai">
-          <div class="bubble ai">Nuova sessione avviata con <b>${activeModel}</b>. Di cosa hai bisogno?</div>
-        </div>
-      `;
-      toggleSidebar(false);
-    }
+function renderHistory() {
+  const box = $("hist");
+  box.innerHTML = "";
+  state.sessions.filter(s => s.messages.length).forEach(s => {
+    const el = document.createElement("div");
+    el.className = "hist-item";
+    el.innerHTML = `<span>💬 ${esc(s.title)}</span><button aria-label="Elimina">🗑</button>`;
+    el.querySelector("span").onclick = () => { state.currentId = s.id; renderAll(); toggleSide(false); };
+    el.querySelector("button").onclick = () => {
+      state.sessions = state.sessions.filter(x => x.id !== s.id);
+      if (state.currentId === s.id) state.currentId = null;
+      persist(); renderHistory(); renderAll();
+    };
+    box.appendChild(el);
+  });
+  if (!box.children.length) box.innerHTML = '<div class="note">Nessuna conversazione salvata.</div>';
+}
 
-    function loadSession(query) {
-      toggleSidebar(false);
-      sendPrompt(query);
-    }
+async function submit(textOverride) {
+  if (state.busy) return;
+  const input = $("input");
+  const text = (textOverride ?? input.value).trim();
+  if (!text) return;
+  input.value = "";
+  state.busy = true;
+  Voice.stop();
 
-    function updateModelName() {
-      const sel = document.getElementById('ai-model-select');
-      activeModel = sel.options[sel.selectedIndex].text.split('(')[0].replace(/[^\w\s.]/gi, '').trim();
-      document.getElementById('header-model-badge').innerText = activeModel;
-    }
+  const session = currentSession();
+  const userMsg = { role: "user", text };
+  session.messages.push(userMsg);
+  if (session.messages.length === 1) session.title = text.slice(0, 40);
+  renderMessage(userMsg);
 
-    function updateReasoningEffort(val) {
-      reasoningLevel = parseInt(val);
-      const label = document.getElementById('reasoning-label');
-      const note = document.getElementById('reasoning-note');
-      if (reasoningLevel === 1) {
-        label.innerText = "Rapida (1x)";
-        label.style.color = "#4ade80";
-        note.innerText = "Risposte istantanee con consumo standard.";
-      } else if (reasoningLevel === 2) {
-        label.innerText = "Profonda (2x)";
-        label.style.color = "#38bdf8";
-        note.innerText = "Analisi logica con elaborazione a più passaggi.";
-      } else {
-        label.innerText = "Massima (Totale)";
-        label.style.color = "var(--jarvis-cyan)";
-        note.innerText = "⚠️ Livello Massimo: su piano gratuito consuma tutti i crediti rimanenti in 1 sola richiesta.";
-      }
-    }
+  setTyping("Sto elaborando…");
+  try {
+    const r = await respond(text);
+    const aiMsg = { role: "ai", text: r.text, cards: r.cards, sources: r.sources, query: text };
+    session.messages.push(aiMsg);
+    const row = renderMessage(aiMsg);
+    if (state.settings.autoSpeak && row._listen) row._listen.click();
+  } catch {
+    renderMessage({ role: "ai", text: "Si è verificato un errore imprevisto. Riprova." });
+  }
+  setTyping(null);
+  state.busy = false;
+  persist(); renderHistory();
+}
 
-    // TEMI
-    function applyTheme(name) {
-      const root = document.documentElement;
-      if (name === 'dark') {
-        root.style.setProperty('--bg-dark', '#0a0e14');
-        root.style.setProperty('--accent', '#2563eb');
-        root.style.setProperty('--user-bubble', '#2563eb');
-        root.style.setProperty('--ai-bubble', '#161b22');
-      } else if (name === 'whatsapp') {
-        root.style.setProperty('--bg-dark', '#0b141a');
-        root.style.setProperty('--accent', '#00a884');
-        root.style.setProperty('--user-bubble', '#005c4b');
-        root.style.setProperty('--ai-bubble', '#202c33');
-      } else if (name === 'purple') {
-        root.style.setProperty('--bg-dark', '#0f0a1c');
-        root.style.setProperty('--accent', '#8b5cf6');
-        root.style.setProperty('--user-bubble', '#7c3aed');
-        root.style.setProperty('--ai-bubble', '#1e1633');
-      } else if (name === 'cyber') {
-        root.style.setProperty('--bg-dark', '#030712');
-        root.style.setProperty('--accent', '#00f2fe');
-        root.style.setProperty('--user-bubble', '#0891b2');
-        root.style.setProperty('--ai-bubble', '#0e1726');
-      }
-    }
+function toggleSide(open) {
+  $("side").classList.toggle("open", open);
+  $("overlay").classList.toggle("on", open);
+}
 
-    function changeCustomAccent(color) {
-      document.documentElement.style.setProperty('--accent', color);
-      document.documentElement.style.setProperty('--user-bubble', color);
-    }
+function applyTheme(i) {
+  const t = CFG.themes[i] || CFG.themes[0];
+  document.documentElement.style.setProperty("--accent", t.a);
+  document.documentElement.style.setProperty("--user", t.u);
+  state.settings.theme = i;
+  persist();
+}
 
-    // TELEMETRIA J.A.R.V.I.S. & CONDIVISIONE SCHERMO
-    function toggleJarvisMode() {
-      jarvisActive = !jarvisActive;
-      document.getElementById('jarvis-hud').classList.toggle('active', jarvisActive);
-      document.getElementById('viewport').classList.toggle('jarvis-mode', jarvisActive);
-      document.getElementById('btn-jarvis').classList.toggle('active', jarvisActive);
-      if (jarvisActive) {
-        playJarvisChime();
-        readJarvisTelemetry();
-      }
-    }
+/* ---------- J.A.R.V.I.S. ---------- */
+async function readTelemetry() {
+  $("mRam").textContent = navigator.deviceMemory ? navigator.deviceMemory + " GB" : "—";
+  $("mCpu").textContent = navigator.hardwareConcurrency || "—";
+  const c = navigator.connection;
+  $("mNet").textContent = navigator.onLine ? (c && c.effectiveType ? c.effectiveType.toUpperCase() : "Online") : "Offline";
+  if (navigator.getBattery) {
+    try { const b = await navigator.getBattery(); $("mBat").textContent = Math.round(b.level * 100) + "%" + (b.charging ? " ⚡" : ""); }
+    catch { $("mBat").textContent = "—"; }
+  } else $("mBat").textContent = "—";
+}
 
-    async function readJarvisTelemetry() {
-      if (navigator.deviceMemory) {
-        document.getElementById('hud-ram').innerText = navigator.deviceMemory + " GB";
-      }
-      if (navigator.getBattery) {
-        try {
-          const batt = await navigator.getBattery();
-          document.getElementById('hud-battery').innerText = Math.round(batt.level * 100) + "%" + (batt.charging ? " ⚡" : "");
-        } catch(e) {}
-      }
-    }
+function toggleJarvis(force) {
+  const on = force ?? !$("hud").classList.contains("on");
+  $("hud").classList.toggle("on", on);
+  $("app").classList.toggle("jarvis", on);
+  $("jarvisBtn").classList.toggle("on", on);
+  if (on) readTelemetry();
+}
 
-    async function startScreenShare() {
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const video = document.getElementById('screen-stream-video');
-        video.style.display = 'block';
-        video.srcObject = stream;
-        alert("Schermo collegato a J.A.R.V.I.S. in tempo reale!");
-      } catch (err) {
-        alert("Condivisione schermo non disponibile su questo browser.");
-      }
-    }
+async function shareScreen() {
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const v = $("screenVideo");
+    v.style.display = "block";
+    v.srcObject = stream;
+    stream.getVideoTracks()[0].onended = () => { v.style.display = "none"; };
+    toast("Schermo condiviso in locale.");
+  } catch { toast("Condivisione schermo non disponibile o annullata."); }
+}
 
-    // CHIME AUDIO & SINTESI VOCALE HD
-    function playJarvisChime() {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.25);
-      } catch(e) {}
-    }
+function updateNet() {
+  const on = navigator.onLine;
+  $("netDot").classList.toggle("off", !on);
+  $("netTxt").textContent = on ? "Online" : "Offline";
+}
 
-    function playVoiceSummary(text) {
-      if (!('speechSynthesis' in window)) return;
-      if (isSpeaking) {
-        window.speechSynthesis.cancel();
-        isSpeaking = false;
-        return;
-      }
-      playJarvisChime();
-      setTimeout(() => {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'it-IT';
-        u.rate = 1.05;
-        const voices = window.speechSynthesis.getVoices();
-        const bestVoice = voices.find(v => v.lang.includes('it') && (v.name.includes('Google') || v.name.includes('Alice') || v.name.includes('Cosimo') || v.name.includes('Natural')));
-        if (bestVoice) u.voice = bestVoice;
-        u.onstart = () => { isSpeaking = true; };
-        u.onend = () => { isSpeaking = false; };
-        window.speechSynthesis.speak(u);
-      }, 300);
-    }
+/* ---------- Avvio e collegamenti ---------- */
+function init() {
+  Voice.init();
 
-    // GESTIONE MESSAGGI
-    function onKey(e) { if (e.key === 'Enter') submitMessage(); }
+  // Swatches
+  $("swatches").innerHTML = CFG.themes.map((t, i) => `<div class="sw" title="${t.n}" style="background:${t.a}" data-i="${i}"></div>`).join("");
+  $("swatches").onclick = e => { if (e.target.dataset.i) applyTheme(+e.target.dataset.i); };
+  applyTheme(state.settings.theme);
 
-    function sendPrompt(text) {
-      document.getElementById('user-input').value = text;
-      submitMessage();
-    }
+  // Impostazioni
+  $("modelName").value = state.settings.model || "openai";
+  $("modelName").onchange = e => { state.settings.model = e.target.value.trim() || "openai"; persist(); };
+  $("apiEndpoint").value = state.settings.endpoint || "";
+  $("apiEndpoint").onchange = e => { state.settings.endpoint = e.target.value.trim(); persist(); };
+  $("apiKey").value = state.settings.apiKey || "";
+  $("apiKey").onchange = e => { state.settings.apiKey = e.target.value.trim(); persist(); };
+  $("testAi").onclick = async () => {
+    toast("Verifico la connessione…");
+    try { await askAI([{ role: "user", content: "Rispondi solo con la parola: ok" }], ""); toast("✅ Connessione IA funzionante"); }
+    catch (e) { toast("❌ " + e.message); }
+  };
+  $("autoSpeak").checked = state.settings.autoSpeak;
+  $("autoSpeak").onchange = e => { state.settings.autoSpeak = e.target.checked; persist(); };
+  $("rate").value = state.settings.rate;
+  $("rate").onchange = e => { state.settings.rate = e.target.value; persist(); };
+  $("voiceSel").onchange = e => { state.settings.voice = e.target.value; persist(); };
 
-    async function submitMessage() {
-      const input = document.getElementById('user-input');
-      const text = input.value.trim();
-      if (!text) return;
+  // Suggerimenti
+  const chips = [
+    ["📰 Notizie di oggi", "Quali sono le notizie più importanti di oggi?"],
+    ["🏛️ Politica", "Cosa succede oggi in politica italiana?"],
+    ["💶 Economia", "Ultime notizie di economia"],
+    ["🌍 Dal mondo", "Cosa sta succedendo nel mondo oggi?"],
+    ["⚽ Sport", "Ultime notizie sportive"],
+    ["🔬 Fusione nucleare", "Spiegami come funziona un reattore a fusione nucleare"]
+  ];
+  $("chips").innerHTML = chips.map((c, i) => `<button class="chip" data-i="${i}">${c[0]}</button>`).join("");
+  $("chips").onclick = e => { const b = e.target.closest(".chip"); if (b) submit(chips[b.dataset.i][1]); };
 
-      appendUserMsg(text);
-      input.value = "";
+  // Pulsanti
+  $("openSide").onclick = () => toggleSide(true);
+  $("closeSide").onclick = $("overlay").onclick = () => toggleSide(false);
+  $("newChat").onclick = () => { state.currentId = null; Voice.stop(); renderAll(); toggleSide(false); };
+  $("sendBtn").onclick = () => submit();
+  $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } });
+  $("jarvisBtn").onclick = () => toggleJarvis();
+  $("closeHud").onclick = () => toggleJarvis(false);
+  $("shareBtn").onclick = shareScreen;
+  $("startBtn").onclick = () => $("welcome").classList.add("hide");
 
-      const typing = document.getElementById('typing-box');
-      typing.style.display = 'block';
-      const chat = document.getElementById('chat');
-      chat.scrollTop = chat.scrollHeight;
+  $("micBtn").onclick = () => Voice.listen(
+    (txt, final) => { $("input").value = txt; if (final) submit(); },
+    on => $("micBtn").classList.toggle("rec", on)
+  );
 
-      await handleUniversalPipeline(text);
-      typing.style.display = 'none';
-    }
+  $("gpsBtn").onclick = () => {
+    if (!navigator.geolocation) return toast("Geolocalizzazione non supportata.");
+    navigator.geolocation.getCurrentPosition(
+      p => { state.coords = { lat: p.coords.latitude, lon: p.coords.longitude }; toast("Posizione attivata."); },
+      () => toast("Permesso posizione negato.")
+    );
+  };
+  $("notifBtn").onclick = async () => {
+    if (!("Notification" in window)) return toast("Notifiche non supportate.");
+    const r = await Notification.requestPermission();
+    toast(r === "granted" ? "Notifiche attivate." : "Notifiche non consentite.");
+  };
+  $("clearAll").onclick = () => {
+    if (!confirm("Eliminare cronologia e impostazioni salvate su questo dispositivo?")) return;
+    store.wipe(); state.sessions = []; state.currentId = null;
+    renderAll(); renderHistory(); toast("Dati cancellati.");
+  };
 
-    function appendUserMsg(t) {
-      const chat = document.getElementById('chat');
-      const row = document.createElement('div');
-      row.className = 'msg-row user';
-      row.innerHTML = `<div class="bubble user">${escapeHtml(t)}</div>`;
-      chat.appendChild(row);
-      chat.scrollTop = chat.scrollHeight;
-    }
+  window.addEventListener("online", updateNet);
+  window.addEventListener("offline", updateNet);
+  updateNet();
 
-    // ================= MOTORE INTELLIGENTE ENTERPRISE =================
-    async function handleUniversalPipeline(query) {
-      const q = query.toLowerCase();
+  if (state.sessions.length) $("welcome").classList.add("hide");
+  renderHistory();
+  renderAll();
+}
 
-      // 1. NOTIZIE / TG5 / TELEGIORNALE IN DIRETTA
-      if (q.includes('tg5') || q.includes('notizie') || q.includes('notizia') || q.includes('tg') || q.includes('cronaca')) {
-        await renderLiveNews(query);
-        return;
-      }
-
-      // 2. SPESA / CEREALI / OFFERTE NEGOZI
-      if (q.includes('cereali') || q.includes('spesa') || q.includes('prezzo') || q.includes('supermercato')) {
-        renderShoppingDossier(query);
-        return;
-      }
-
-      // 3. QUALSIASI ALTRA DOMANDA (Tesla, Scienza, Storia, Tecnologia)
-      await renderGeneralDossier(query);
-    }
-
-    // GESTIONE NOTIZIE VERE SENZA RIFIUTI
-    async function renderLiveNews(query) {
-      const isTg5 = query.toLowerCase().includes('tg5');
-      let newsItems = [];
-
-      try {
-        const res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.ansa.it%2Fsito%2Fnotizie%2Ftopnews%2Ftopnews_rss.xml");
-        const data = await res.json();
-        if (data && data.items && data.items.length > 0) {
-          newsItems = data.items.slice(0, 4);
-        }
-      } catch(e) {}
-
-      let bulletsHtml = "";
-      let vocalText = "";
-
-      if (newsItems.length > 0) {
-        newsItems.forEach(item => {
-          bulletsHtml += `<div class="news-bullet-item"><b>• ${escapeHtml(item.title)}</b></div>`;
-        });
-        vocalText = `Ecco i principali titoli di oggi: ${newsItems.map(n => n.title).join('. ')}`;
-      } else {
-        bulletsHtml = `
-          <div class="news-bullet-item"><b>• Politica ed Economia:</b> Avanzamento parlamentare sulla manovra finanziaria e misure sul lavoro.</div>
-          <div class="news-bullet-item"><b>• Cronaca Nazionale:</b> Monitoraggio costante delle principali novità e sviluppi sul territorio.</div>
-          <div class="news-bullet-item"><b>• Esteri & Geopolitica:</b> Aggiornamenti diplomatici dell'ultima ora e accordi strategici internazionali.</div>
-        `;
-        vocalText = "Notizie del giorno: manovra economica in primo piano, aggiornamenti di cronaca e scenari internazionali.";
-      }
-
-      const cardHtml = `
-        <div class="bubble ai">
-          Dossier Informativo: <b>${isTg5 ? 'Edizione Ufficiale TG5 Mediaset' : 'Rassegna Telegiornali & Ultime Notizie'}</b>
-          <div class="ai-rich-card">
-            <img src="${isTg5 ? REAL_IMAGES.tg5 : REAL_IMAGES.news}" class="card-banner" alt="Studio Notizie TG" />
-            <div class="card-body">
-              <span style="font-size:10px; font-weight:800; color:#ef4444; text-transform:uppercase;">🔴 Flash Notizie in Tempo Reale</span>
-              <div style="font-size:15px; font-weight:bold; margin:6px 0 8px;">Titoli Principali di Oggi</div>
-              ${bulletsHtml}
-            </div>
-            <div class="card-btn-row">
-              <button class="card-btn btn-voice" onclick="playVoiceSummary(\`${vocalText.replace(/`/g, '')}\`)">
-                🔊 Ascolta Notizie a Voce
-              </button>
-              <a href="https://mediasetinfinity.mediaset.it/news/tg5_SE000000000035" target="_blank" class="card-btn btn-tg5">
-                📺 Diretta & Repliche TG5
-              </a>
-              <a href="https://tg24.sky.it/" target="_blank" class="card-btn btn-sky">
-                🌐 Sky TG24 Live
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
-      appendAiMessage(cardHtml);
-    }
-
-    // GESTIONE QUALSIASI DOMANDA (Niente più foto anime)
-    async function renderGeneralDossier(query) {
-      let answerText = "";
-      let photoUrl = REAL_IMAGES.tech;
-      const q = query.toLowerCase();
-
-      // Scelta foto tematica reale di qualità
-      if (q.includes('tesla') || q.includes('macchina') || q.includes('volante') || q.includes('auto')) {
-        photoUrl = REAL_IMAGES.tesla;
-      } else if (q.includes('scienza') || q.includes('fisica') || q.includes('fusione') || q.includes('spazio')) {
-        photoUrl = REAL_IMAGES.science;
-      }
-
-      // Tentativo di recuperare immagine ufficiale da Wikipedia se argomento specifico
-      try {
-        const wikiPic = await fetch(`https://it.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles=${encodeURIComponent(query)}&origin=*`);
-        const pData = await wikiPic.json();
-        const pages = pData.query.pages;
-        const pageKey = Object.keys(pages)[0];
-        if (pages[pageKey].original && pages[pageKey].original.source) {
-          photoUrl = pages[pageKey].original.source;
-        }
-      } catch(e) {}
-
-      try {
-        // Prompt aziendale che impedisce rifiuti
-        const prompt = `Sei ${activeModel}. Rispondi in italiano con un'analisi autorevole, esauriente e approfondita alla richiesta: "${query}". Non rifiutare la risposta e spiega sia gli aspetti tecnici che lo stato dell'arte in 3-4 frasi chiare.`;
-        const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}`);
-        if (res.ok) {
-          answerText = await res.text();
-          if (answerText.toLowerCase().includes("non posso") || answerText.length < 40) throw new Error();
-        } else {
-          throw new Error();
-        }
-      } catch(e) {
-        answerText = `In merito a "${query}": l'argomento rappresenta uno dei campi di maggiore innovazione tecnologica. I brevetti più discussi integrano propulsori avanzati, automazione aerospaziale e standard di sicurezza per il trasporto di nuova generazione.`;
-      }
-
-      const cardHtml = `
-        <div class="bubble ai">
-          Analisi Elaborata da <b>${activeModel}</b> (Livello ${reasoningLevel}):
-          <div class="ai-rich-card">
-            <img src="${photoUrl}" class="card-banner" alt="Fotografia Ufficiale" />
-            <div class="card-body">
-              <span style="font-size:10px; font-weight:800; color:var(--jarvis-cyan); text-transform:uppercase;">Dossier Approfondito</span>
-              <div style="font-size:15px; font-weight:bold; margin:6px 0 8px; color:white;">${escapeHtml(query)}</div>
-              <div style="font-size:13.5px; line-height:1.55; color:#cbd5e1;">${escapeHtml(answerText)}</div>
-            </div>
-            <div class="card-btn-row">
-              <button class="card-btn btn-voice" onclick="playVoiceSummary(\`${answerText.replace(/`/g, '')}\`)">
-                🔊 Ascolta a Voce
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-      appendAiMessage(cardHtml);
-    }
-
-    // SPESA E CEREALI LOCALI
-    function renderShoppingDossier(query) {
-      const cardHtml = `
-        <div class="bubble ai">
-          Rilevamento Offerte Spesa Locale (${userCity}):
-          <div class="ai-rich-card">
-            <img src="${REAL_IMAGES.cereals}" class="card-banner" alt="Cereali" />
-            <div class="card-body">
-              <span style="font-size:10px; font-weight:800; color:#4ade80; text-transform:uppercase;">Miglior Offerta Locale</span>
-              <div style="font-size:15px; font-weight:bold; margin:4px 0;">Cereali Croccanti Avena 375g</div>
-              <div style="font-size:18px; font-weight:800; color:#38bdf8; margin:4px 0;">1,49 € <span style="font-size:12px; color:#64748b; text-decoration:line-through;">2,39 €</span></div>
-              <div style="font-size:13px; color:#cbd5e1;">Disponibili al Conad City più vicino a circa 320m. Aperto fino alle 20:30.</div>
-            </div>
-            <div class="card-btn-row">
-              <a href="https://www.google.com/maps/search/supermercato+piu+vicino/" target="_blank" class="card-btn btn-main">
-                📍 Mappa & Navigatore
-              </a>
-              <button class="card-btn btn-voice" onclick="playVoiceSummary('I cereali al miglior prezzo costano un euro e 49 al Conad City a circa trecento metri da te.')">
-                🔊 Ascolta Prezzo
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-      appendAiMessage(cardHtml);
-    }
-
-    function appendAiMessage(html) {
-      const chat = document.getElementById('chat');
-      const row = document.createElement('div');
-      row.className = 'msg-row ai';
-      row.innerHTML = html;
-      chat.appendChild(row);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-  </script>
+init();
+</script>
 </body>
 </html>
