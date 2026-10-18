@@ -1,544 +1,314 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, Mic, MicOff, Send, Activity, LogOut, Menu, X, Plus, Trash2 } from 'lucide-react';
+import { Volume2, Mic, MicOff, Send, Activity, LogOut } from 'lucide-react';
 
 const VIP = 'chrichri071112@gmail.com', FREE = 8, CY = '#22d3ee';
 const now = () => new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-
 const st = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  async get(k) { try { const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; } catch (e) { return null; } },
+  async set(k, v) { try { await window.storage.set(k, JSON.stringify(v)); } catch (e) {} }
 };
 
-/* ---------- MOTORE IA (Notizie Live + Risposte Reali) ---------- */
-async function askAI(messages, apiKey, endpoint) {
-  const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content || '';
-  const q = lastUserMsg.toLowerCase();
+/* ---------- IA (Claude + ricerca web) ---------- */
+const SYSTEM = () => `Sei Omni AI, assistente italiano competente, diretto e onesto. Ragiona sulla domanda REALE dell'utente.
+Data di oggi: ${new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.
+Rispondi esattamente a ciò che viene chiesto, in italiano naturale, 80-180 parole salvo richiesta diversa. Per attualità cerca sul web e non inventare notizie, numeri, prezzi o negozi. Non hai accesso ai prezzi dei supermercati. Se non sei sicuro, dillo. Per salute, legge e denaro dai informazioni generali.`;
 
-  // Se l'utente chiede notizie o TG, leggiamo i feed ufficiali in tempo reale
-  if (q.includes('notizi') || q.includes('tg') || q.includes('oggi') || q.includes('politica')) {
-    try {
-      const feedRes = await fetch("https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.ansa.it%2Fsito%2Fnotizie%2Ftopnews%2Ftopnews_rss.xml");
-      const feedData = await feedRes.json();
-      if (feedData && feedData.items && feedData.items.length > 0) {
-        const top = feedData.items.slice(0, 4);
-        const text = `Ecco i principali aggiornamenti dell'ultima ora:\n\n` +
-          top.map((n, i) => `• **${n.title}**`).join('\n') +
-          `\n\nPuoi seguire le dirette e gli approfondimenti completi sui canali ufficiali del TG5 e delle agenzie di stampa.`;
-        const sources = top.map(n => ({ title: n.title, url: n.link }));
-        return { text, sources };
-      }
-    } catch (e) {}
-  }
-
-  // Se è impostata una chiave API personale (Groq / OpenAI)
-  if (apiKey || endpoint) {
-    const url = endpoint || 'https://api.groq.com/openai/v1/chat/completions';
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'system', content: 'Sei Omni AI, assistente italiano intelligente, preciso ed esaustivo.' }, ...messages]
-      })
-    });
-    if (!res.ok) throw new Error(`Errore API HTTP ${res.status}`);
-    const data = await res.json();
-    const out = data?.choices?.[0]?.message?.content;
-    if (!out) throw new Error('Risposta vuota');
-    return { text: out.trim(), sources: [] };
-  }
-
-  // Connessione pubblica diretta senza chiave (funzionante subito nel browser)
-  const fullPrompt = `Rispondi in italiano in modo chiaro, utile ed esaustivo a questa domanda: "${lastUserMsg}".`;
-  const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=openai`);
-  if (!res.ok) throw new Error(`Servizio AI temporaneamente occupato (HTTP ${res.status})`);
-  const text = await res.text();
-  if (!text || text.trim().length < 2) throw new Error('Risposta vuota');
-  return { text: text.trim(), sources: [] };
+async function ask(messages) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM(), messages, tools: [{ type: 'web_search_20250305', name: 'web_search' }] })
+  });
+  if (!res.ok) throw new Error('Servizio IA non raggiungibile (HTTP ' + res.status + ').');
+  const b = (await res.json()).content || [];
+  const text = b.filter(x => x.type === 'text').map(x => x.text).join('').trim();
+  const seen = new Set(), sources = [];
+  b.forEach(x => (x.type === 'web_search_tool_result' && Array.isArray(x.content)) && x.content.forEach(r => {
+    if (r.url && !seen.has(r.url) && sources.length < 4) { seen.add(r.url); sources.push({ title: r.title || r.url, url: r.url }); }
+  }));
+  if (!text) throw new Error('Risposta vuota.');
+  return { text, sources };
 }
 
-/* ---------- VOCE (TTS) ---------- */
-let voiceQueue = [], isVoiceActive = false;
-const stopVoice = () => {
-  isVoiceActive = false;
-  voiceQueue = [];
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
-};
-
-const speak = (text, endCallback, selectedVoiceName, rateVal = 1) => {
-  if (!('speechSynthesis' in window)) return endCallback && endCallback();
+/* ---------- Voce ---------- */
+let q = [], on = false;
+const stopVoice = () => { on = false; q = []; if ('speechSynthesis' in window) speechSynthesis.cancel(); };
+const speak = (text, end) => {
+  if (!('speechSynthesis' in window)) return end && end();
   stopVoice();
-  const clean = text.replace(/https?:\/\/\S+/g, '').replace(/[*#_`~>]/g, '').replace(/\s+/g, ' ');
-  voiceQueue = clean.match(/[^.!?;:]+[.!?;:]?/g) || [clean];
-  isVoiceActive = true;
-
-  const itVoices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it'));
-  let chosenVoice = itVoices.find(v => v.name === selectedVoiceName) || itVoices[0];
-
+  const clean = text.replace(/https?:\/\/\S+/g, '').replace(/[*#_`~>]/g, '').replace(/(\d+),(\d+)/g, '$1 virgola $2').replace(/%/g, ' per cento').replace(/€/g, ' euro').replace(/\s+/g, ' ');
+  q = clean.match(/[^.!?;:]+[.!?;:]?/g) || [clean]; on = true;
+  const it = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it'));
+  let voice = it[0]; for (const k of ['natural', 'neural', 'google', 'elsa', 'alice', 'luca']) { const v = it.find(v => v.name.toLowerCase().includes(k)); if (v) { voice = v; break; } }
   const next = () => {
-    if (!isVoiceActive || !voiceQueue.length) {
-      isVoiceActive = false;
-      return endCallback && endCallback();
-    }
-    const u = new SpeechSynthesisUtterance(voiceQueue.shift());
-    u.lang = 'it-IT';
-    u.rate = Number(rateVal) || 1;
-    if (chosenVoice) u.voice = chosenVoice;
-    u.onend = next;
-    u.onerror = () => { isVoiceActive = false; endCallback && endCallback(); };
-    speechSynthesis.speak(u);
+    if (!on || !q.length) { on = false; return end && end(); }
+    const u = new SpeechSynthesisUtterance(q.shift()); u.lang = 'it-IT'; if (voice) u.voice = voice;
+    u.onend = next; u.onerror = () => { on = false; end && end(); }; speechSynthesis.speak(u);
   };
   next();
 };
 
-/* ---------- SFONDO ANIMATO JARVIS ---------- */
+/* ---------- Sfondo animato / sfera J.A.R.V.I.S. ---------- */
 function Bg({ hud, pulse }) {
-  const ref = useRef(null), pr = useRef(pulse);
-  pr.current = pulse;
+  const ref = useRef(null), pr = useRef(pulse); pr.current = pulse;
   useEffect(() => {
-    const c = ref.current; if (!c) return;
-    const g = c.getContext('2d');
-    let raf, t = 0;
-    const rs = () => { c.width = c.clientWidth; c.height = c.clientHeight; };
-    rs(); window.addEventListener('resize', rs);
-    const S = Array.from({ length: 220 }, (_, i) => {
-      const k = (i + 0.5) / 220, ph = Math.acos(1 - 2 * k), th = Math.PI * (1 + Math.sqrt(5)) * i;
-      return [Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)];
-    });
-
+    const c = ref.current, g = c.getContext('2d'); let raf, t = 0;
+    const P = Array.from({ length: 80 }, () => ({ x: Math.random(), y: Math.random(), v: 0.0002 + Math.random() * 0.0007 }));
+    const S = Array.from({ length: 260 }, (_, i) => { const k = (i + 0.5) / 260, ph = Math.acos(1 - 2 * k), th = Math.PI * (1 + Math.sqrt(5)) * i; return [Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)]; });
+    const rs = () => { c.width = c.clientWidth; c.height = c.clientHeight; }; rs(); window.addEventListener('resize', rs);
     const loop = () => {
-      t += 0.015; const w = c.width, h = c.height; g.clearRect(0, 0, w, h);
-      const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h));
-      gr.addColorStop(0, '#07304a'); gr.addColorStop(1, '#020611');
-      g.fillStyle = gr; g.fillRect(0, 0, w, h);
-
+      t += 0.01; const w = c.width, h = c.height; g.clearRect(0, 0, w, h);
+      const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h)); gr.addColorStop(0, '#07304a'); gr.addColorStop(1, '#020611'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.strokeStyle = 'rgba(34,211,238,.07)';
+      for (let x = (t * 25) % 44; x < w; x += 44) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+      for (let y = (t * 25) % 44; y < h; y += 44) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+      P.forEach(p => { p.y -= p.v; if (p.y < 0) p.y = 1; g.fillStyle = 'rgba(34,211,238,.55)'; g.fillRect(p.x * w, p.y * h, 2, 2); });
       if (hud) {
-        const cx = w / 2, cy = h * 0.42, R = Math.min(w, h) * 0.22 * (pr.current ? 1.08 + 0.05 * Math.sin(t * 8) : 1);
+        const cx = w / 2, cy = h * 0.42, R = Math.min(w, h) * 0.2 * (pr.current ? 1.06 + 0.04 * Math.sin(t * 9) : 1);
         const cs = Math.cos(t), sn = Math.sin(t);
-        S.forEach(([x, y, z]) => {
-          const X = x * cs + z * sn, Z = -x * sn + z * cs, d = (Z + 1) / 2;
-          g.fillStyle = `rgba(34,211,238,${0.18 + 0.82 * d})`;
-          g.beginPath(); g.arc(cx + X * R, cy + y * R, 0.8 + d * 1.6, 0, 6.3); g.fill();
-        });
-        g.strokeStyle = 'rgba(34,211,238,0.35)';
-        g.beginPath(); g.ellipse(cx, cy, R * 1.4, R * 0.4, t * 0.6, 0, 6.3); g.stroke();
+        S.forEach(([x, y, z]) => { const X = x * cs + z * sn, Z = -x * sn + z * cs, d = (Z + 1) / 2; g.fillStyle = `rgba(34,211,238,${0.15 + 0.85 * d})`; g.beginPath(); g.arc(cx + X * R, cy + y * R, 0.8 + d * 1.6, 0, 6.3); g.fill(); });
+        g.lineWidth = 1.2; [[1.5, 0.4, 0.5], [1.3, 0.5, -0.8], [1.75, 0.3, 2]].forEach(([a, b, r], i) => { g.strokeStyle = `rgba(34,211,238,${0.45 - i * 0.1})`; g.beginPath(); g.ellipse(cx, cy, R * a, R * b, t * r + i, 0, 6.3); g.stroke(); });
+        g.save(); g.textAlign = 'center'; g.shadowColor = CY; g.shadowBlur = 24; g.fillStyle = '#a5f3fc'; g.font = `700 ${R * 0.3}px sans-serif`; g.fillText('J.A.R.V.I.S.', cx, cy + R * 0.08);
+        g.shadowBlur = 0; g.fillStyle = CY; g.font = `${R * 0.11}px sans-serif`; g.fillText('AI CORE · ONLINE', cx, cy + R * 0.32); g.restore();
       }
       raf = requestAnimationFrame(loop);
     };
-    loop();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', rs); };
+    loop(); return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', rs); };
   }, [hud]);
   return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />;
 }
 
-/* ---------- HUD J.A.R.V.I.S. ---------- */
-const panelStyle = { border: '1px solid rgba(34,211,238,.35)', background: 'rgba(5,20,35,.75)', borderRadius: 12, padding: 10, backdropFilter: 'blur(6px)', fontSize: 12 };
+/* ---------- HUD J.A.R.V.I.S. a schermo intero ---------- */
+const panel = { border: '1px solid rgba(34,211,238,.35)', background: 'rgba(5,20,35,.72)', borderRadius: 12, padding: 10, backdropFilter: 'blur(6px)', fontSize: 12 };
+const Ttl = ({ children }) => <div style={{ color: CY, fontWeight: 800, letterSpacing: 1.5, fontSize: 10, marginBottom: 6 }}>{children}</div>;
+const Row = ({ k, v }) => <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(34,211,238,.12)' }}><span style={{ color: '#7dd3fc' }}>{k}</span><b style={{ color: '#fff' }}>{v}</b></div>;
+const Ring = ({ v, label, txt }) => {
+  const r = 26, C = 2 * Math.PI * r;
+  return <div style={{ textAlign: 'center' }}><svg width="68" height="68"><circle cx="34" cy="34" r={r} stroke="#0e3a52" strokeWidth="6" fill="none" /><circle cx="34" cy="34" r={r} stroke={CY} strokeWidth="6" fill="none" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - Math.min(1, v || 0))} transform="rotate(-90 34 34)" /><text x="34" y="38" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="700">{txt}</text></svg><div style={{ color: '#7dd3fc', fontSize: 10 }}>{label}</div></div>;
+};
+const WX = (c) => c === 0 ? 'Sereno' : c < 4 ? 'Nuvoloso' : c < 50 ? 'Nebbia' : c < 70 ? 'Pioggia' : c < 80 ? 'Neve' : c < 90 ? 'Rovesci' : 'Temporale';
 
-function Hud({ onClose, tele, coords, count, last, speaking, dictating, onTalk }) {
-  const [stream, setStream] = useState(null);
-  const [clock, setClock] = useState(new Date());
-  const videoRef = useRef(null);
-
-  useEffect(() => {
-    const i = setInterval(() => setClock(new Date()), 1000);
-    return () => { clearInterval(i); if (stream) stream.getTracks().forEach(t => t.stop()); };
-  }, [stream]);
-
-  const toggleScreen = async () => {
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      setStream(null);
-      return;
-    }
-    try {
-      if (!navigator.mediaDevices?.getDisplayMedia) {
-        alert("La condivisione schermo non è supportata su questo browser mobile.");
-        return;
-      }
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      s.getVideoTracks()[0].onended = () => setStream(null);
-      setStream(s);
-      if (videoRef.current) videoRef.current.srcObject = s;
-    } catch (e) {
-      alert("Condivisione schermo annullata o non consentita.");
-    }
+function Hud({ onClose, tele, coords, count, last, speaking, dictating, onTalk, onSpeak, premium }) {
+  const [clock, setClock] = useState(new Date()), [feed, setFeed] = useState(null), [wx, setWx] = useState(null), [heap, setHeap] = useState(null);
+  const [stream, setStream] = useState(null), [ana, setAna] = useState(''), [busyA, setBusyA] = useState(false), vref = useRef(null);
+  const narrow = window.innerWidth < 860;
+  useEffect(() => { const i = setInterval(() => { setClock(new Date()); const m = performance.memory; if (m) setHeap(m.usedJSHeapSize / m.jsHeapSizeLimit); }, 1000); return () => clearInterval(i); }, []);
+  const loadFeed = async () => {
+    setFeed(null);
+    try { const r = await ask([{ role: 'user', content: 'Cerca sul web i 5 titoli di notizie più importanti in Italia adesso. Rispondi SOLO con 5 righe, una per titolo, senza numeri né introduzioni, max 90 caratteri ciascuna.' }]); setFeed(r.text.split('\n').map(l => l.replace(/^[-•*\d.\s]+/, '').trim()).filter(l => l.length > 8).slice(0, 5)); }
+    catch (e) { setFeed(['Feed non disponibile: ' + e.message]); }
   };
-
+  useEffect(() => { loadFeed(); return () => { if (stream) stream.getTracks().forEach(t => t.stop()); }; }, []);
+  useEffect(() => { if (!coords) return; fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,weather_code`).then(r => r.json()).then(d => setWx(Math.round(d.current.temperature_2m) + '°C ' + WX(d.current.weather_code))).catch(() => setWx('n/d')); }, [coords]);
+  useEffect(() => { if (vref.current && stream) vref.current.srcObject = stream; }, [stream]);
+  const share = async () => {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); setStream(null); return; }
+    try { const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false }); s.getVideoTracks()[0].onended = () => setStream(null); setStream(s); } catch (e) { setAna('Condivisione non disponibile o annullata in questo ambiente.'); }
+  };
+  const analyze = async () => {
+    const v = vref.current; if (!v || !v.videoWidth) return; const c = document.createElement('canvas'), s = Math.min(1, 1280 / v.videoWidth);
+    c.width = v.videoWidth * s; c.height = v.videoHeight * s; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    setBusyA(true); setAna('Analizzo lo schermo…');
+    try { const r = await ask([{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.7).split(',')[1] } }, { type: 'text', text: 'Descrivi cosa vedi sullo schermo e come posso essere utile. Se c\'è testo o un errore, leggilo e spiegalo.' }] }]); setAna(r.text); onSpeak(r.text); }
+    catch (e) { setAna('⚠️ ' + e.message); } setBusyA(false);
+  };
+  const bars = Array.from({ length: 16 });
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 60, color: '#e0f2fe', overflow: 'auto', background: 'rgba(2,6,17,0.92)' }}>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 60, color: '#e0f2fe', overflow: 'auto' }}>
       <Bg hud pulse={speaking || dictating} />
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, padding: 14, minHeight: '100%' }}>
-        <div style={{ ...panelStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <b style={{ color: CY, letterSpacing: 2 }}>J.A.R.V.I.S. COMMAND CENTER</b>
-          <span>{clock.toLocaleTimeString('it-IT')}</span>
-          <button onClick={onClose} style={{ ...panelStyle, padding: '4px 10px', color: '#fff', cursor: 'pointer' }}>✕ Chiudi</button>
+      <style>{'@keyframes eq{0%,100%{height:4px}50%{height:26px}}'}</style>
+      <div style={{ position: 'relative', display: 'grid', gap: 10, padding: 12, minHeight: '100%', gridTemplateColumns: narrow ? '1fr' : '270px 1fr 300px', gridTemplateRows: narrow ? 'auto' : 'auto 1fr auto' }}>
+        <div style={{ ...panel, gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <b style={{ letterSpacing: 3, color: CY }}>J.A.R.V.I.S. COMMAND CENTER</b>
+          <span style={{ fontSize: 18, fontWeight: 800 }}>{clock.toLocaleTimeString('it-IT')} <small style={{ color: '#7dd3fc', fontWeight: 400 }}>{clock.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</small></span>
+          <button onClick={onClose} style={{ ...panel, padding: '4px 12px', cursor: 'pointer', color: '#fff' }}>✕ Chiudi</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div style={panelStyle}><b>RAM Hardware:</b> {tele.ram}</div>
-          <div style={panelStyle}><b>Batteria:</b> {tele.bat}</div>
-          <div style={panelStyle}><b>Stato Rete:</b> {tele.net}</div>
-          <div style={panelStyle}><b>Messaggi Sessione:</b> {count}</div>
-        </div>
-
-        <div style={panelStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <b style={{ color: CY }}>CONDIVISIONE SCHERMO</b>
-            <button onClick={toggleScreen} style={{ ...panelStyle, padding: '4px 8px', color: stream ? '#fda4af' : '#fff' }}>
-              {stream ? 'Interrompi' : '🖥️ Avvia Schermo'}
-            </button>
+        <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+          <div style={panel}><Ttl>AI CORE OVERVIEW</Ttl>
+            <Row k="Modello" v="Claude" /><Row k="Ricerca web" v="Attiva" /><Row k="Voce" v={speaking ? 'Parla' : dictating ? 'In ascolto' : 'Pronta'} /><Row k="Messaggi" v={count} /><Row k="Piano" v={premium ? 'Premium' : 'Free'} />
           </div>
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            style={{ width: '100%', height: stream ? 150 : 0, borderRadius: 8, background: '#000', display: stream ? 'block' : 'none', border: '1px solid ' + CY }}
-          />
+          <div style={panel}><Ttl>VOICE STATUS</Ttl>
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center', height: 30 }}>{bars.map((_, i) => <span key={i} style={{ width: 4, height: 4, background: CY, borderRadius: 2, animation: (speaking || dictating) ? `eq ${0.5 + (i % 5) * 0.12}s ease-in-out infinite` : 'none' }} />)}</div>
+            <div style={{ color: '#7dd3fc', marginTop: 4 }}>{dictating ? 'Ti ascolto…' : speaking ? 'Sto parlando…' : 'Premi "Parla con Jarvis"'}</div>
+          </div>
+          <div style={panel}><Ttl>SCHERMO</Ttl>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button onClick={share} style={{ ...panel, padding: '4px 10px', cursor: 'pointer', color: stream ? '#fda4af' : '#fff' }}>{stream ? 'Interrompi' : 'Condividi schermo'}</button>
+              {stream && <button disabled={busyA} onClick={analyze} style={{ ...panel, padding: '4px 10px', cursor: 'pointer', color: '#fff' }}>🔍 Analizza</button>}
+            </div>
+            {stream && <video ref={vref} autoPlay muted playsInline style={{ width: '100%', marginTop: 6, borderRadius: 8, border: '1px solid ' + CY, background: '#000' }} />}
+            {ana && <div style={{ marginTop: 6, maxHeight: 110, overflow: 'auto', whiteSpace: 'pre-line' }}>{ana}</div>}
+          </div>
         </div>
 
-        <div style={{ ...panelStyle, flex: 1, maxHeight: 160, overflow: 'auto' }}>
-          <b style={{ color: CY }}>ULTIMA RISPOSTA ELABORATA:</b>
-          <div style={{ marginTop: 4 }}>{last || 'In attesa di comandi vocali o testuali...'}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 8, minHeight: narrow ? 300 : 0 }}>
+          <div style={{ ...panel, maxHeight: 140, overflow: 'auto', whiteSpace: 'pre-line' }}><Ttl>ULTIMA RISPOSTA</Ttl>{last || 'Nessuna risposta ancora. Chiedi qualcosa a Jarvis.'}</div>
+          <button onClick={onTalk} style={{ ...panel, padding: 12, cursor: 'pointer', color: '#fff', fontWeight: 800, letterSpacing: 2, borderColor: dictating ? '#fb7185' : CY, boxShadow: '0 0 20px rgba(34,211,238,.4)' }}>{dictating ? '● TI ASCOLTO… (pausa 2s per inviare)' : '🎙️ PARLA CON JARVIS'}</button>
         </div>
 
-        <button onClick={onTalk} style={{ ...panelStyle, padding: 14, color: '#fff', fontWeight: 800, borderColor: dictating ? '#f43f5e' : CY, textAlign: 'center' }}>
-          {dictating ? '● IN ASCOLTO... PARLA ORA' : '🎙️ PARLA CON J.A.R.V.I.S.'}
-        </button>
+        <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+          <div style={panel}><Ttl>LIVE INTELLIGENCE FEED <button onClick={loadFeed} style={{ float: 'right', color: '#fff', cursor: 'pointer' }}>↻</button></Ttl>
+            {feed ? feed.map((f, i) => <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid rgba(34,211,238,.12)' }}>▸ {f}</div>) : <div style={{ color: '#7dd3fc' }}>Cerco le notizie sul web…</div>}
+          </div>
+          <div style={panel}><Ttl>SYSTEM MONITOR</Ttl>
+            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+              <Ring v={heap} label="Memoria JS" txt={heap == null ? '—' : Math.round(heap * 100) + '%'} />
+              <Ring v={tele.batV} label="Batteria" txt={tele.bat} />
+              <Ring v={tele.fps / 60} label="FPS" txt={tele.fps || '—'} />
+            </div>
+            <Row k="RAM dispositivo" v={tele.ram} /><Row k="Core CPU" v={tele.cpu} /><Row k="Rete" v={tele.net} />
+          </div>
+        </div>
+
+        <div style={{ ...panel, gridColumn: '1 / -1', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+          <span>📍 {coords ? coords.lat.toFixed(2) + ', ' + coords.lon.toFixed(2) : 'Posizione non attivata'}</span>
+          <span>🌤️ {wx || '—'}</span><span>📶 {tele.net}</span><span>🔋 {tele.bat}</span>
+          <span style={{ marginLeft: 'auto', color: '#7dd3fc', fontSize: 10 }}>Dati reali del browser; "—" = non disponibili.</span>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ---------- APP PRINCIPALE ---------- */
+/* ---------- App ---------- */
+const btn = { width: '100%', padding: 12, borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 8 };
+const CHIPS = [['📰 Notizie di oggi', 'Quali sono le notizie più importanti di oggi in Italia?'], ['🏛️ Politica', 'Cosa succede oggi in politica italiana?'], ['🥩 Bistecca perfetta', 'Come cucino una bistecca perfetta in padella?'], ['🧬 La pelle', 'Che cos\'è la pelle in scienze?'], ['⚛️ Fusione nucleare', 'Spiegami come funziona la fusione nucleare']];
+
 export default function App() {
-  const [stage, setStage] = useState('app');
-  const [user, setUser] = useState(() => st.get('omni:user', { email: VIP, premium: true, used: 0 }));
-  const [sessions, setSessions] = useState(() => st.get('omni:sessions', [{ id: '1', title: 'Prima Sessione', messages: [] }]));
-  const [currentSessionId, setCurrentSessionId] = useState('1');
+  const [stage, setStage] = useState('intro'), [mode, setMode] = useState('signup'), [email, setEmail] = useState(''), [err, setErr] = useState('');
+  const [user, setUser] = useState(null), [coords, setCoords] = useState(null), [notif, setNotif] = useState(''), [loc, setLoc] = useState('');
+  const [msgs, setMsgs] = useState([]), [input, setInput] = useState(''), [busy, setBusy] = useState(false), [speaking, setSpeaking] = useState(false);
+  const [dictating, setDictating] = useState(false), [hud, setHud] = useState(false), [tele, setTele] = useState({ ram: '—', cpu: '—', bat: '—', batV: 0, net: '—', fps: 0 });
+  const accts = useRef({}), rec = useRef(null), sil = useRef(null), txt = useRef(''), chat = useRef(null), userRef = useRef(null); userRef.current = user;
 
-  // Impostazioni Tema & Voce
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [accent, setAccent] = useState(() => st.get('omni:accent', CY));
-  const [voiceList, setVoiceList] = useState([]);
-  const [selectedVoice, setSelectedVoice] = useState(() => st.get('omni:voice', ''));
-  const [voiceRate, setVoiceRate] = useState(() => st.get('omni:rate', 1));
-  const [apiKey, setApiKey] = useState(() => st.get('omni:key', ''));
-
-  // Chat & Telemetria
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [dictating, setDictating] = useState(false);
-  const [hud, setHud] = useState(false);
-  const [tele, setTele] = useState({ ram: '8 GB', bat: '100% ⚡', net: 'Online' });
-
-  const chatScrollRef = useRef(null);
-  const speechRecRef = useRef(null);
-
-  const curSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
-  const msgs = curSession?.messages || [];
-
+  useEffect(() => { st.get('omni:accounts').then(a => { accts.current = a || {}; }); }, []);
+  useEffect(() => { if (chat.current) chat.current.scrollTop = chat.current.scrollHeight; }, [msgs, busy]);
   useEffect(() => {
-    st.set('omni:sessions', sessions);
-    st.set('omni:user', user);
-    st.set('omni:accent', accent);
-    st.set('omni:voice', selectedVoice);
-    st.set('omni:rate', voiceRate);
-    st.set('omni:key', apiKey);
-  }, [sessions, user, accent, selectedVoice, voiceRate, apiKey]);
-
-  useEffect(() => {
-    if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-  }, [msgs, busy]);
-
-  useEffect(() => {
-    // Caricamento elenco voci
-    const updateVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoiceList(speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it')));
-      }
-    };
-    updateVoices();
-    if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = updateVoices;
-
-    // Telemetria base
-    const n = navigator;
-    setTele({
-      ram: n.deviceMemory ? n.deviceMemory + ' GB' : '8 GB',
-      bat: '95% ⚡',
-      net: n.onLine ? 'Online' : 'Offline'
-    });
-    if (n.getBattery) {
-      n.getBattery().then(b => setTele(t => ({ ...t, bat: Math.round(b.level * 100) + '%' }))).catch(() => {});
-    }
+    const n = navigator, c = n.connection;
+    setTele(t => ({ ...t, ram: n.deviceMemory ? n.deviceMemory + ' GB' : '—', cpu: n.hardwareConcurrency || '—', net: n.onLine ? (c && c.effectiveType ? c.effectiveType.toUpperCase() : 'Online') : 'Offline' }));
+    if (n.getBattery) n.getBattery().then(b => { const u = () => setTele(t => ({ ...t, bat: Math.round(b.level * 100) + '%', batV: b.level })); u(); b.addEventListener('levelchange', u); }).catch(() => {});
+    let f = 0, l = performance.now(), raf; const loop = (x) => { f++; if (x - l > 1000) { setTele(t => ({ ...t, fps: f })); f = 0; l = x; } raf = requestAnimationFrame(loop); }; raf = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(raf); stopVoice(); };
   }, []);
 
-  // GESTIONE NUOVA CHAT & CRONOLOGIA
-  const newChat = () => {
-    const newId = String(Date.now());
-    const newSess = { id: newId, title: 'Nuova Conversazione', messages: [] };
-    setSessions([newSess, ...sessions]);
-    setCurrentSessionId(newId);
-    setMenuOpen(false);
-    stopVoice();
+  const save = (u) => { accts.current[u.email] = u; st.set('omni:accounts', accts.current); setUser({ ...u }); };
+  const enter = (prov) => {
+    const e = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(e)) return setErr('Inserisci un indirizzo email valido.');
+    if (prov === 'google' && !e.endsWith('@gmail.com')) return setErr('Per Google inserisci un indirizzo Gmail.');
+    const a = accts.current[e];
+    if (mode === 'login' && !a) return setErr('Nessun account trovato con questa email: creane uno.');
+    if (mode === 'signup' && a) return setErr('Esiste già un account con questa email: usa "Accedi".');
+    const u = a || { email: e, premium: false, used: 0, permsAsked: false };
+    if (e === VIP) { u.premium = true; u.vip = true; }
+    save(u); setErr(''); setStage(!u.permsAsked ? 'perms' : u.premium ? 'app' : 'offer');
   };
+  const askNotif = () => { if (!('Notification' in window)) return setNotif('non supportate'); Notification.requestPermission().then(r => setNotif(r === 'granted' ? 'attivate' : 'negate')).catch(() => setNotif('non disponibili')); };
+  const askLoc = () => { if (!navigator.geolocation) return setLoc('non supportata'); navigator.geolocation.getCurrentPosition(p => { setCoords({ lat: p.coords.latitude, lon: p.coords.longitude }); setLoc('attivata'); }, () => setLoc('negata')); };
+  const afterPerms = () => { save({ ...user, permsAsked: true }); setStage(user.premium ? 'app' : 'offer'); };
+  const logout = () => { stopVoice(); setUser(null); setMsgs([]); setHud(false); setStage('intro'); };
 
-  const deleteSession = (id, e) => {
-    e.stopPropagation();
-    if (sessions.length === 1) return;
-    const remaining = sessions.filter(s => s.id !== id);
-    setSessions(remaining);
-    if (currentSessionId === id) setCurrentSessionId(remaining[0].id);
-  };
-
-  // ASCOLTO VOCALE (DETTATURA) RISOLTO
-  const toggleDictation = () => {
-    if (dictating) {
-      if (speechRecRef.current) speechRecRef.current.stop();
-      setDictating(false);
-      return;
-    }
-
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      alert("Il tuo browser non supporta il microfono vocale.");
-      return;
-    }
-
-    stopVoice();
-    const recognizer = new SR();
-    recognizer.lang = 'it-IT';
-    recognizer.interimResults = true;
-    recognizer.continuous = false;
-
-    recognizer.onstart = () => setDictating(true);
-    recognizer.onresult = (e) => {
-      const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
-      setInput(transcript);
-    };
-    recognizer.onerror = () => setDictating(false);
-    recognizer.onend = () => setDictating(false);
-
-    speechRecRef.current = recognizer;
-    try {
-      recognizer.start();
-    } catch (e) {
-      setDictating(false);
-    }
-  };
-
-  // LETTURA VOCALE (TTS)
-  const toggleSpeak = (text) => {
-    if (speaking) {
-      stopVoice();
-      setSpeaking(false);
-      return;
-    }
-    setSpeaking(true);
-    speak(text, () => setSpeaking(false), selectedVoice, voiceRate);
-  };
-
-  // INVIO MESSAGGI ALL'AI
-  const send = async (textOverride) => {
-    const txt = (textOverride || input).trim();
-    if (!txt || busy) return;
-
-    stopVoice();
-    setSpeaking(false);
-
-    const userMsg = { id: Date.now(), me: true, text: txt, time: now() };
-    const updatedMessages = [...msgs, userMsg];
-
-    // Aggiorna titolo chat se è il primo messaggio
-    const updatedSessions = sessions.map(s => {
-      if (s.id === currentSessionId) {
-        return {
-          ...s,
-          title: s.messages.length === 0 ? txt.slice(0, 30) : s.title,
-          messages: updatedMessages
-        };
-      }
-      return s;
-    });
-
-    setSessions(updatedSessions);
-    setInput('');
-    setBusy(true);
-
-    try {
-      const history = updatedMessages.map(m => ({ role: m.me ? 'user' : 'assistant', content: m.text }));
-      const res = await askAI(history, apiKey);
-
-      const aiMsg = { id: Date.now() + 1, me: false, text: res.text, sources: res.sources, time: now() };
-      setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, aiMsg] } : s));
-      if (hud) toggleSpeak(res.text);
-    } catch (e) {
-      const errMsg = { id: Date.now() + 1, me: false, text: `⚠️ ${e.message}`, time: now() };
-      setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, errMsg] } : s));
-    }
+  const toggleSpeak = (t) => { if (speaking) { stopVoice(); setSpeaking(false); return; } setSpeaking(true); speak(t, () => setSpeaking(false)); };
+  const send = async (arg) => {
+    const text = (arg !== undefined ? arg : input).trim(); const u = userRef.current;
+    if (!text || busy) return;
+    if (!u.premium && u.used >= FREE) { setStage('offer'); return; }
+    stopVoice(); setSpeaking(false);
+    const history = msgs.filter(m => !m.err).slice(-10).map(m => ({ role: m.me ? 'user' : 'assistant', content: m.text })); history.push({ role: 'user', content: text });
+    setMsgs(m => [...m, { id: Date.now(), me: true, text, time: now() }]); setInput(''); setBusy(true);
+    if (!u.premium) save({ ...u, used: u.used + 1 });
+    try { const r = await ask(history); setMsgs(m => [...m, { id: Date.now() + 1, text: r.text, sources: r.sources, time: now() }]); if (hud) toggleSpeak(r.text); }
+    catch (e) { setMsgs(m => [...m, { id: Date.now() + 1, err: true, text: '⚠️ ' + e.message + ' Riprova tra un momento.', time: now() }]); }
     setBusy(false);
   };
 
-  return (
-    <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', background: '#020611', color: '#e0f2fe', overflow: 'hidden' }}>
+  const stopDict = (go) => { clearTimeout(sil.current); const r = rec.current; rec.current = null; if (r) { r.onend = null; try { r.stop(); } catch (e) {} } setDictating(false); const t = txt.current.trim(); txt.current = ''; if (go && t) send(t); };
+  const dict = () => {
+    if (dictating) return stopDict(true);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return alert('Dettatura non supportata qui: scrivi a mano.');
+    stopVoice(); setSpeaking(false); const r = new SR(); r.lang = 'it-IT'; r.continuous = true; r.interimResults = true;
+    r.onresult = (e) => { const t = Array.from(e.results).map(x => x[0].transcript).join(' ').trim(); txt.current = t; setInput(t); clearTimeout(sil.current); sil.current = setTimeout(() => stopDict(true), 2000); };
+    r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { alert('Microfono non consentito in questo ambiente.'); stopDict(false); } };
+    r.onend = () => { if (rec.current) { try { r.start(); } catch (e) {} } };
+    rec.current = r; txt.current = ''; setDictating(true); try { r.start(); } catch (e) { stopDict(false); }
+  };
+  const openHud = () => { if (!user.premium) return setStage('offer'); setHud(true); };
+  const lastAi = [...msgs].reverse().find(m => !m.me && !m.err);
+  const left = user ? Math.max(0, FREE - user.used) : 0;
+  const card = { position: 'relative', width: 'min(92vw, 400px)', margin: 'auto', padding: 24, borderRadius: 20, border: '1px solid rgba(34,211,238,.4)', background: 'rgba(5,18,32,.88)', backdropFilter: 'blur(10px)', color: '#e0f2fe', textAlign: 'center' };
+  const inp = { width: '100%', padding: 12, borderRadius: 12, border: '1px solid #155e75', background: '#06202f', color: '#fff', marginBottom: 8, fontSize: 14 };
+
+  /* ---------- Schermate di accesso ---------- */
+  if (stage !== 'app') return (
+    <div style={{ position: 'relative', height: '100vh', display: 'flex', overflow: 'auto', background: '#020611' }}>
       <Bg />
+      {stage === 'intro' && <div style={card}><div style={{ fontSize: 40 }}>⚡</div><h1 style={{ fontSize: 26, fontWeight: 800, margin: '6px 0' }}>Omni AI</h1>
+        <p style={{ fontSize: 13, color: '#7dd3fc', marginBottom: 18 }}>Risposte vere, notizie con fonti e voce. Hai già un account?</p>
+        <button style={{ ...btn, background: CY, color: '#00222b', border: 'none' }} onClick={() => { setMode('login'); setStage('email'); }}>Sì, accedi</button>
+        <button style={{ ...btn, background: 'transparent', color: '#fff', border: '1px solid ' + CY }} onClick={() => { setMode('signup'); setStage('email'); }}>No, crea un account</button></div>}
+      {stage === 'email' && <div style={card}><h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12 }}>{mode === 'login' ? 'Accedi' : 'Crea il tuo account'}</h2>
+        <input style={inp} type="email" placeholder="La tua email" value={email} onChange={e => setEmail(e.target.value)} />
+        <button style={{ ...btn, background: '#fff', color: '#111', border: 'none' }} onClick={() => enter('google')}>Continua con Google</button>
+        <button style={{ ...btn, background: CY, color: '#00222b', border: 'none' }} onClick={() => enter('email')}>Continua con email</button>
+        {err && <div style={{ color: '#fda4af', fontSize: 13, marginBottom: 8 }}>{err}</div>}
+        <p style={{ fontSize: 11, color: '#7dd3fc' }}>Accesso dimostrativo: nessuna password. Un vero login Google richiede la configurazione di OAuth.</p>
+        <button onClick={() => { setStage('intro'); setErr(''); }} style={{ color: '#7dd3fc', fontSize: 12, textDecoration: 'underline' }}>Indietro</button></div>}
+      {stage === 'perms' && <div style={card}><h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Ultimo passo</h2>
+        <p style={{ fontSize: 13, color: '#7dd3fc', marginBottom: 14 }}>Vuoi attivare notifiche e posizione? Servono per avvisi e meteo nella modalità J.A.R.V.I.S. Puoi saltare.</p>
+        <button style={{ ...btn, background: '#06202f', color: '#fff', border: '1px solid ' + CY }} onClick={askNotif}>🔔 Attiva notifiche {notif && '— ' + notif}</button>
+        <button style={{ ...btn, background: '#06202f', color: '#fff', border: '1px solid ' + CY }} onClick={askLoc}>📍 Condividi la posizione attuale {loc && '— ' + loc}</button>
+        <button style={{ ...btn, background: CY, color: '#00222b', border: 'none' }} onClick={afterPerms}>Continua</button></div>}
+      {stage === 'offer' && <div style={card}><div style={{ fontSize: 34 }}>👑</div><h2 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0' }}>Omni Premium</h2>
+        <div style={{ fontSize: 26, fontWeight: 800, color: CY }}>1 € <small style={{ fontSize: 13, color: '#7dd3fc' }}>/ mese</small></div>
+        <p style={{ fontSize: 13, color: '#bae6fd', margin: '10px 0 14px', textAlign: 'left', lineHeight: 1.6 }}>✓ Messaggi illimitati<br />✓ Modalità J.A.R.V.I.S. a schermo intero<br />✓ Analisi dello schermo condiviso<br />✓ Feed di notizie e meteo in tempo reale</p>
+        {user && user.used >= FREE && !user.premium && <div style={{ color: '#fcd34d', fontSize: 13, marginBottom: 8 }}>Hai usato tutti gli 8 messaggi gratuiti.</div>}
+        <button style={{ ...btn, background: 'linear-gradient(90deg,#f59e0b,#fde047)', color: '#000', border: 'none' }} onClick={() => { save({ ...user, premium: true }); setStage('app'); }}>Attiva l&apos;abbonamento</button>
+        <button style={{ ...btn, background: 'transparent', color: '#7dd3fc', border: '1px solid #155e75' }} onClick={() => setStage('app')}>{user && user.used >= FREE ? 'Non ora' : `Continua gratis (${left} messaggi)`}</button>
+        <p style={{ fontSize: 11, color: '#7dd3fc' }}>Dimostrazione: nessun pagamento reale viene elaborato.</p></div>}
+    </div>
+  );
 
-      {/* ================= BARRA LATERALE MENU & IMPOSTAZIONI ================= */}
-      {menuOpen && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'flex' }}>
-          <div onClick={() => setMenuOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)' }} />
-          <div style={{ position: 'relative', width: 310, height: '100%', background: '#091522', borderRight: '1px solid ' + accent, padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10 }}>
-              <b style={{ color: accent }}>⚡ OMNI MENU</b>
-              <button onClick={() => setMenuOpen(false)} style={{ color: '#fff' }}><X size={20} /></button>
-            </div>
-
-            <button onClick={newChat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, background: accent, color: '#000', borderRadius: 10, fontWeight: 800 }}>
-              <Plus size={16} /> Nuova Conversazione
-            </button>
-
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 6, textTransform: 'uppercase' }}>Cronologia Chat</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
-                {sessions.map(s => (
-                  <div
-                    key={s.id}
-                    onClick={() => { setCurrentSessionId(s.id); setMenuOpen(false); }}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: s.id === currentSessionId ? 'rgba(34,211,238,0.2)' : 'rgba(255,255,255,0.04)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
-                  >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 210 }}>💬 {s.title}</span>
-                    <button onClick={(e) => deleteSession(s.id, e)} style={{ color: '#94a3b8' }}><Trash2 size={14} /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 6, textTransform: 'uppercase' }}>Voce AI</div>
-              <select value={selectedVoice} onChange={e => setSelectedVoice(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 8, background: '#051827', color: '#fff', border: '1px solid #164e63', fontSize: 12, marginBottom: 8 }}>
-                <option value="">Voce Automatica</option>
-                {voiceList.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
-              </select>
-              <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
-                <span>Velocità Voce:</span>
-                <b>{voiceRate}x</b>
-              </div>
-              <input type="range" min="0.7" max="1.4" step="0.05" value={voiceRate} onChange={e => setVoiceRate(e.target.value)} style={{ width: '100%' }} />
-            </div>
-
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 6, textTransform: 'uppercase' }}>Colore Interfaccia</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {['#22d3ee', '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'].map(c => (
-                  <div key={c} onClick={() => setAccent(c)} style={{ width: 26, height: 26, borderRadius: '50%', background: c, border: accent === c ? '2px solid white' : 'none', cursor: 'pointer' }} />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 4, textTransform: 'uppercase' }}>Chiave API (Opzionale)</div>
-              <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Incolla chiave Groq o OpenAI..." style={{ width: '100%', padding: 8, borderRadius: 8, background: '#051827', color: '#fff', border: '1px solid #164e63', fontSize: 12 }} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= HEADER ================= */}
-      <header style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(3,14,25,.85)', borderBottom: '1px solid rgba(34,211,238,.3)', zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => setMenuOpen(true)} style={{ color: '#fff' }}><Menu size={22} /></button>
-          <div>
-            <b style={{ fontSize: 15 }}>⚡ Omni AI</b>
-            <div style={{ fontSize: 11, color: '#fcd34d' }}>👑 VIP Fondatore · Illimitato ({user.email})</div>
-          </div>
-        </div>
-
+  /* ---------- App ---------- */
+  return (
+    <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', color: '#e0f2fe' }}>
+      <Bg />
+      <header style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(3,14,25,.8)', borderBottom: '1px solid rgba(34,211,238,.3)' }}>
+        <div><b style={{ fontSize: 15 }}>⚡ Omni AI</b><div style={{ fontSize: 11, color: user.premium ? '#fcd34d' : '#7dd3fc' }}>{user.vip ? '👑 Premium gratuito (VIP)' : user.premium ? '👑 Premium · messaggi illimitati' : `${left}/${FREE} messaggi gratuiti`} · {user.email}</div></div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {speaking && <button onClick={() => { stopVoice(); setSpeaking(false); }} style={{ color: '#6ee7b7' }}><Volume2 size={18} /></button>}
-          <button onClick={() => setHud(true)} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 12px', borderRadius: 10, border: '1px solid ' + accent, color: accent, fontWeight: 800, fontSize: 12 }}>
-            <Activity size={14} /> J.A.R.V.I.S.
-          </button>
+          {!user.premium && <button onClick={() => setStage('offer')} style={{ padding: '5px 10px', borderRadius: 10, background: '#f59e0b', color: '#000', fontWeight: 800, fontSize: 12 }}>Passa a Premium</button>}
+          {speaking && <button onClick={() => { stopVoice(); setSpeaking(false); }} style={{ padding: 6, color: '#6ee7b7' }}><Volume2 size={18} /></button>}
+          <button onClick={openHud} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 12px', borderRadius: 10, border: '1px solid ' + CY, color: CY, fontWeight: 800, fontSize: 12 }}><Activity size={14} /> J.A.R.V.I.S. {!user.premium && '🔒'}</button>
+          <button onClick={logout} title="Esci" style={{ padding: 6, color: '#7dd3fc' }}><LogOut size={18} /></button>
         </div>
       </header>
 
-      {/* ================= AREA CHAT ================= */}
-      <div ref={chatScrollRef} style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: 16 }}>
+      <div ref={chat} style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: 16 }}>
         <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {msgs.length === 0 && (
-            <div style={{ ...panelStyle, fontSize: 14, lineHeight: 1.6 }}>
-              Ciao! Sistemi aggiornati e pronti. Puoi chiedermi <b>notizie reali, curiosità scientifiche, ricette o supporto per lo studio</b>. Puoi dettare con il microfono e ascoltare le risposte a voce.
-            </div>
-          )}
+          {msgs.length === 0 && <div style={{ ...panel, fontSize: 14, lineHeight: 1.6 }}>Ciao! Rispondo davvero a quello che chiedi (cucina, scienza, studio, attualità con fonti). Se non so qualcosa, te lo dico.</div>}
           {msgs.map(m => (
-            <div key={m.id} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: 14, borderRadius: 16, fontSize: 14, lineHeight: 1.55, background: m.me ? '#0e7490' : 'rgba(5,20,35,.88)', border: '1px solid rgba(34,211,238,.25)' }}>
+            <div key={m.id} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: 14, borderRadius: 16, fontSize: 14, lineHeight: 1.55, background: m.me ? '#0e7490' : 'rgba(5,20,35,.85)', border: '1px solid rgba(34,211,238,.25)' }}>
               <div style={{ whiteSpace: 'pre-line' }}>{m.text}</div>
-              {!m.me && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                  <button onClick={() => toggleSpeak(m.text)} style={{ padding: '5px 10px', borderRadius: 8, background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700 }}>🔊 Ascolta</button>
-                  {(m.sources || []).map((s, i) => (
-                    <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>↗ {s.title.slice(0, 32)}</a>
-                  ))}
-                </div>
-              )}
+              {!m.me && !m.err && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                <button onClick={() => toggleSpeak(m.text)} style={{ padding: '5px 10px', borderRadius: 8, background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700 }}>🔊 Ascolta</button>
+                {(m.sources || []).map((s, i) => <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>↗ {s.title.slice(0, 36)}</a>)}</div>}
               <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: 'right' }}>{m.time}</div>
             </div>
           ))}
-          {busy && <div style={{ color: accent, fontSize: 12 }}>● ● ● Omni sta elaborando la risposta...</div>}
+          {busy && <div style={{ color: CY, fontSize: 12 }}>● ● ● Sto ragionando (se serve cerco sul web)…</div>}
         </div>
       </div>
 
-      {/* ================= SUGGERIMENTI ================= */}
       <div style={{ position: 'relative', display: 'flex', gap: 8, overflowX: 'auto', padding: '6px 14px', background: 'rgba(3,14,25,.7)' }}>
-        {[
-          ['📰 Notizie TG di oggi', 'Quali sono le ultime notizie principali in Italia oggi?'],
-          ['🚗 Macchina volante Tesla', 'Parlami dei progetti e brevetti della macchina volante Tesla'],
-          ['🥣 Cereali economici', 'Quali cereali costano meno per la colazione?'],
-          ['🔬 Fusione Nucleare', 'Spiegami in modo semplice come funziona la fusione nucleare']
-        ].map(([lbl, query]) => (
-          <button key={lbl} onClick={() => send(query)} style={{ whiteSpace: 'nowrap', padding: '5px 12px', borderRadius: 999, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>
-            {lbl}
-          </button>
-        ))}
+        {CHIPS.map(c => <button key={c[0]} onClick={() => send(c[1])} style={{ whiteSpace: 'nowrap', padding: '5px 12px', borderRadius: 999, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>{c[0]}</button>)}
       </div>
-
-      {/* ================= INPUT FOOTER ================= */}
-      <footer style={{ position: 'relative', display: 'flex', gap: 8, padding: 12, background: 'rgba(3,14,25,.95)', borderTop: '1px solid rgba(34,211,238,.3)' }}>
-        <button
-          onClick={toggleDictation}
-          style={{ width: 44, height: 44, borderRadius: 14, border: '1px solid ' + accent, background: dictating ? '#e11d48' : '#06202f', color: dictating ? '#fff' : accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          {dictating ? <MicOff size={20} /> : <Mic size={20} />}
-        </button>
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder={dictating ? 'In ascolto dal microfono...' : 'Chiedi qualunque cosa ad Omni...'}
-          style={{ flex: 1, padding: '0 16px', height: 44, borderRadius: 14, border: '1px solid #155e75', background: '#06202f', color: '#fff', fontSize: 14, outline: 'none' }}
-        />
-        <button
-          onClick={() => send()}
-          disabled={busy || !input.trim()}
-          style={{ width: 44, height: 44, borderRadius: 14, background: accent, color: '#00222b', opacity: busy || !input.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Send size={20} />
-        </button>
+      <footer style={{ position: 'relative', display: 'flex', gap: 8, padding: 12, background: 'rgba(3,14,25,.9)', borderTop: '1px solid rgba(34,211,238,.3)' }}>
+        <button onClick={dict} style={{ width: 44, height: 44, borderRadius: 14, border: '1px solid ' + CY, background: dictating ? '#e11d48' : '#06202f', color: dictating ? '#fff' : CY, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{dictating ? <MicOff size={20} /> : <Mic size={20} />}</button>
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={dictating ? 'Ti ascolto… 2 secondi di pausa per inviare' : 'Chiedimi qualunque cosa…'} style={{ flex: 1, padding: '0 16px', height: 44, borderRadius: 14, border: '1px solid #155e75', background: '#06202f', color: '#fff', fontSize: 14 }} />
+        <button onClick={() => send()} disabled={busy || !input.trim()} style={{ width: 44, height: 44, borderRadius: 14, background: CY, color: '#00222b', opacity: busy || !input.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={20} /></button>
       </footer>
 
-      {/* ================= J.A.R.V.I.S. MODAL ================= */}
-      {hud && (
-        <Hud
-          onClose={() => setHud(false)}
-          tele={tele}
-          coords={null}
-          count={msgs.length}
-          last={msgs.filter(m => !m.me).pop()?.text}
-          speaking={speaking}
-          dictating={dictating}
-          onTalk={toggleDictation}
-        />
-      )}
+      {hud && <Hud onClose={() => { setHud(false); stopDict(false); }} tele={tele} coords={coords} count={msgs.length} last={lastAi && lastAi.text} speaking={speaking} dictating={dictating} onTalk={dict} onSpeak={toggleSpeak} premium={user.premium} />}
     </div>
   );
 }
+      
