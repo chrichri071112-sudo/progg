@@ -1,826 +1,544 @@
-<!DOCTYPE html>
-<html lang="it" translate="no">
-<head>
-<meta charset="UTF-8" />
-<meta name="google" content="notranslate" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Omni AI</title>
-<style>
-:root{
-  --bg:#0b0f17; --panel:#111827; --card:#161d2b; --line:rgba(255,255,255,.09);
-  --accent:#3b82f6; --accent-2:#22d3ee; --text:#e8edf5; --sub:#8794a8;
-  --user:#2563eb; --ok:#34d399; --warn:#f59e0b; --danger:#ef4444; --radius:16px;
+import React, { useState, useEffect, useRef } from 'react';
+import { Volume2, Mic, MicOff, Send, Activity, LogOut, Menu, X, Plus, Trash2 } from 'lucide-react';
+
+const VIP = 'chrichri071112@gmail.com', FREE = 8, CY = '#22d3ee';
+const now = () => new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+const st = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+/* ---------- MOTORE IA (Notizie Live + Risposte Reali) ---------- */
+async function askAI(messages, apiKey, endpoint) {
+  const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content || '';
+  const q = lastUserMsg.toLowerCase();
+
+  // Se l'utente chiede notizie o TG, leggiamo i feed ufficiali in tempo reale
+  if (q.includes('notizi') || q.includes('tg') || q.includes('oggi') || q.includes('politica')) {
+    try {
+      const feedRes = await fetch("https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.ansa.it%2Fsito%2Fnotizie%2Ftopnews%2Ftopnews_rss.xml");
+      const feedData = await feedRes.json();
+      if (feedData && feedData.items && feedData.items.length > 0) {
+        const top = feedData.items.slice(0, 4);
+        const text = `Ecco i principali aggiornamenti dell'ultima ora:\n\n` +
+          top.map((n, i) => `• **${n.title}**`).join('\n') +
+          `\n\nPuoi seguire le dirette e gli approfondimenti completi sui canali ufficiali del TG5 e delle agenzie di stampa.`;
+        const sources = top.map(n => ({ title: n.title, url: n.link }));
+        return { text, sources };
+      }
+    } catch (e) {}
+  }
+
+  // Se è impostata una chiave API personale (Groq / OpenAI)
+  if (apiKey || endpoint) {
+    const url = endpoint || 'https://api.groq.com/openai/v1/chat/completions';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'system', content: 'Sei Omni AI, assistente italiano intelligente, preciso ed esaustivo.' }, ...messages]
+      })
+    });
+    if (!res.ok) throw new Error(`Errore API HTTP ${res.status}`);
+    const data = await res.json();
+    const out = data?.choices?.[0]?.message?.content;
+    if (!out) throw new Error('Risposta vuota');
+    return { text: out.trim(), sources: [] };
+  }
+
+  // Connessione pubblica diretta senza chiave (funzionante subito nel browser)
+  const fullPrompt = `Rispondi in italiano in modo chiaro, utile ed esaustivo a questa domanda: "${lastUserMsg}".`;
+  const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=openai`);
+  if (!res.ok) throw new Error(`Servizio AI temporaneamente occupato (HTTP ${res.status})`);
+  const text = await res.text();
+  if (!text || text.trim().length < 2) throw new Error('Risposta vuota');
+  return { text: text.trim(), sources: [] };
 }
-*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
-body{background:#05070c;color:var(--text);display:flex;justify-content:center;align-items:center;overflow:hidden}
-button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
-.app{position:relative;width:100%;max-width:460px;height:100dvh;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;transition:box-shadow .3s,border-color .3s}
-@media(min-width:600px){.app{height:94vh;border-radius:28px;border:1px solid var(--line);box-shadow:0 30px 60px rgba(0,0,0,.6)}}
-.app.jarvis{border-color:var(--accent-2);box-shadow:0 0 40px rgba(34,211,238,.25)}
 
-/* ---------- Header ---------- */
-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(17,24,39,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);z-index:5}
-.h-left{display:flex;align-items:center;gap:10px}
-.icon-btn{width:36px;height:36px;border-radius:10px;font-size:18px;display:flex;align-items:center;justify-content:center;color:var(--text)}
-.icon-btn:hover{background:rgba(255,255,255,.07)}
-.title{font-weight:700;font-size:15px;letter-spacing:.2px}
-.status{font-size:11px;color:var(--sub);display:flex;align-items:center;gap:6px}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
-.dot.off{background:var(--danger)}
-.pill{font-size:11px;font-weight:700;padding:6px 10px;border-radius:999px;border:1px solid var(--accent-2);color:var(--accent-2)}
-.pill.on{background:var(--accent-2);color:#04121a}
+/* ---------- VOCE (TTS) ---------- */
+let voiceQueue = [], isVoiceActive = false;
+const stopVoice = () => {
+  isVoiceActive = false;
+  voiceQueue = [];
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+};
 
-/* ---------- Chat ---------- */
-#chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
-.row{display:flex;flex-direction:column;max-width:94%}
-.row.user{align-self:flex-end}
-.row.ai{align-self:flex-start;width:100%}
-.bubble{padding:12px 14px;border-radius:var(--radius);font-size:14.5px;line-height:1.58}
-.user .bubble{background:var(--user);border-bottom-right-radius:4px}
-.ai .bubble{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
-.bubble p+p,.bubble ul+p,.bubble p+ul{margin-top:8px}
-.bubble ul{padding-left:18px}
-.bubble li{margin:3px 0}
-.bubble strong{color:#fff}
-.meta{font-size:11px;color:var(--sub);margin:4px 6px 0}
-.actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.chipbtn{font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
-.chipbtn:hover{background:rgba(255,255,255,.13)}
-.chipbtn.playing{background:var(--ok);color:#052e1f}
+const speak = (text, endCallback, selectedVoiceName, rateVal = 1) => {
+  if (!('speechSynthesis' in window)) return endCallback && endCallback();
+  stopVoice();
+  const clean = text.replace(/https?:\/\/\S+/g, '').replace(/[*#_`~>]/g, '').replace(/\s+/g, ' ');
+  voiceQueue = clean.match(/[^.!?;:]+[.!?;:]?/g) || [clean];
+  isVoiceActive = true;
 
-.news{margin-top:10px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0d1320}
-.news-head{padding:9px 12px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--danger);border-bottom:1px solid var(--line)}
-.news a{display:block;padding:10px 12px;text-decoration:none;color:var(--text);border-bottom:1px solid var(--line);font-size:13px;line-height:1.45}
-.news a:last-child{border-bottom:none}
-.news a:hover{background:rgba(255,255,255,.04)}
-.news small{display:block;color:var(--sub);font-size:11px;margin-top:3px}
+  const itVoices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it'));
+  let chosenVoice = itVoices.find(v => v.name === selectedVoiceName) || itVoices[0];
 
-.typing{display:none;padding:0 18px 8px;font-size:12px;color:var(--sub)}
-.typing.on{display:block}
-.typing i{display:inline-block;width:5px;height:5px;margin-right:3px;border-radius:50%;background:var(--sub);animation:b 1.2s infinite}
-.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
-@keyframes b{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+  const next = () => {
+    if (!isVoiceActive || !voiceQueue.length) {
+      isVoiceActive = false;
+      return endCallback && endCallback();
+    }
+    const u = new SpeechSynthesisUtterance(voiceQueue.shift());
+    u.lang = 'it-IT';
+    u.rate = Number(rateVal) || 1;
+    if (chosenVoice) u.voice = chosenVoice;
+    u.onend = next;
+    u.onerror = () => { isVoiceActive = false; endCallback && endCallback(); };
+    speechSynthesis.speak(u);
+  };
+  next();
+};
 
-/* ---------- Input ---------- */
-.chips{display:flex;gap:8px;overflow-x:auto;padding:8px 14px;scrollbar-width:none}
-.chips::-webkit-scrollbar{display:none}
-.chip{white-space:nowrap;font-size:12px;padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:#c6d0de}
-.chip:hover{border-color:var(--accent)}
-.composer{display:flex;gap:8px;align-items:center;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--panel);border-top:1px solid var(--line)}
-.composer input{flex:1;background:#1b2436;border:1px solid var(--line);border-radius:24px;padding:12px 16px;color:var(--text);font-size:14.5px;outline:none}
-.composer input:focus{border-color:var(--accent)}
-.round{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:#1b2436;border:1px solid var(--line)}
-.round.send{background:var(--accent);border-color:var(--accent)}
-.round.rec{background:var(--danger);border-color:var(--danger);animation:pulse 1s infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(239,68,68,.15)}}
+/* ---------- SFONDO ANIMATO JARVIS ---------- */
+function Bg({ hud, pulse }) {
+  const ref = useRef(null), pr = useRef(pulse);
+  pr.current = pulse;
+  useEffect(() => {
+    const c = ref.current; if (!c) return;
+    const g = c.getContext('2d');
+    let raf, t = 0;
+    const rs = () => { c.width = c.clientWidth; c.height = c.clientHeight; };
+    rs(); window.addEventListener('resize', rs);
+    const S = Array.from({ length: 220 }, (_, i) => {
+      const k = (i + 0.5) / 220, ph = Math.acos(1 - 2 * k), th = Math.PI * (1 + Math.sqrt(5)) * i;
+      return [Math.sin(ph) * Math.cos(th), Math.cos(ph), Math.sin(ph) * Math.sin(th)];
+    });
 
-/* ---------- Sidebar ---------- */
-.overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
-.overlay.on{opacity:1;pointer-events:auto}
-aside{position:absolute;top:0;left:0;bottom:0;width:84%;max-width:340px;background:var(--panel);border-right:1px solid var(--line);transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:21;display:flex;flex-direction:column;padding:16px 14px;overflow-y:auto}
-aside.open{transform:none}
-.side-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-weight:800}
-.btn{width:100%;padding:10px;border-radius:10px;font-weight:700;font-size:13px;background:var(--accent);color:#fff}
-.btn.ghost{background:rgba(255,255,255,.07);border:1px solid var(--line)}
-.sec{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--sub);margin:16px 0 7px}
-.hist{display:flex;flex-direction:column;gap:5px;max-height:170px;overflow-y:auto}
-.hist-item{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:12.5px}
-.hist-item span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-.hist-item button{color:var(--sub);font-size:13px}
-select,input[type=range]{width:100%}
-select{background:#1b2436;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:12.5px;outline:none}
-.setting{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;margin:7px 0;gap:10px}
-.swatches{display:flex;gap:9px;margin-top:6px}
-.sw{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.7)}
-.field{width:100%;background:#1b2436;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-size:12.5px;outline:none;margin-bottom:6px}
-.note{font-size:11px;color:var(--sub);line-height:1.45;margin-top:4px}
+    const loop = () => {
+      t += 0.015; const w = c.width, h = c.height; g.clearRect(0, 0, w, h);
+      const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h));
+      gr.addColorStop(0, '#07304a'); gr.addColorStop(1, '#020611');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
 
-/* ---------- JARVIS ---------- */
-.hud{position:absolute;top:60px;left:10px;right:10px;z-index:15;display:none;flex-direction:column;gap:10px;padding:14px;border-radius:16px;background:rgba(5,9,16,.96);border:1px solid var(--accent-2);box-shadow:0 0 28px rgba(34,211,238,.25)}
-.hud.on{display:flex}
-.hud-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;letter-spacing:1px;color:var(--accent-2)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.metric{background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);border-radius:10px;padding:9px;text-align:center}
-.metric b{display:block;font-size:15px;color:var(--accent-2)}
-.metric span{font-size:10px;color:var(--sub);text-transform:uppercase}
-#screenVideo{display:none;width:100%;height:120px;object-fit:cover;background:#000;border-radius:10px;border:1px solid var(--accent-2)}
+      if (hud) {
+        const cx = w / 2, cy = h * 0.42, R = Math.min(w, h) * 0.22 * (pr.current ? 1.08 + 0.05 * Math.sin(t * 8) : 1);
+        const cs = Math.cos(t), sn = Math.sin(t);
+        S.forEach(([x, y, z]) => {
+          const X = x * cs + z * sn, Z = -x * sn + z * cs, d = (Z + 1) / 2;
+          g.fillStyle = `rgba(34,211,238,${0.18 + 0.82 * d})`;
+          g.beginPath(); g.arc(cx + X * R, cy + y * R, 0.8 + d * 1.6, 0, 6.3); g.fill();
+        });
+        g.strokeStyle = 'rgba(34,211,238,0.35)';
+        g.beginPath(); g.ellipse(cx, cy, R * 1.4, R * 0.4, t * 0.6, 0, 6.3); g.stroke();
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', rs); };
+  }, [hud]);
+  return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />;
+}
 
-/* ---------- Welcome ---------- */
-.welcome{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;justify-content:flex-end;padding:26px 22px;background:linear-gradient(180deg,rgba(11,15,23,.2),var(--bg) 70%),radial-gradient(circle at 70% 10%,rgba(59,130,246,.45),transparent 55%);transition:transform .4s,opacity .4s}
-.welcome.hide{transform:translateY(-100%);opacity:0;pointer-events:none}
-.welcome h1{font-size:34px;line-height:1.1;font-weight:800;margin-bottom:10px}
-.welcome p{font-size:14px;line-height:1.55;color:#b6c2d4;margin-bottom:18px}
-.welcome .btn{padding:14px;font-size:15px;border-radius:12px;margin-bottom:8px}
-.toast{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);background:#1f2a40;border:1px solid var(--line);padding:9px 14px;border-radius:10px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:40;max-width:86%;text-align:center}
-.toast.on{opacity:1}
-</style>
-</head>
-<body>
-<div class="app" id="app">
+/* ---------- HUD J.A.R.V.I.S. ---------- */
+const panelStyle = { border: '1px solid rgba(34,211,238,.35)', background: 'rgba(5,20,35,.75)', borderRadius: 12, padding: 10, backdropFilter: 'blur(6px)', fontSize: 12 };
 
-  <!-- Sidebar -->
-  <div class="overlay" id="overlay"></div>
-  <aside id="side">
-    <div class="side-top"><span>⚡ Omni AI</span><button class="icon-btn" id="closeSide">✕</button></div>
-    <button class="btn" id="newChat">+ Nuova conversazione</button>
+function Hud({ onClose, tele, coords, count, last, speaking, dictating, onTalk }) {
+  const [stream, setStream] = useState(null);
+  const [clock, setClock] = useState(new Date());
+  const videoRef = useRef(null);
 
-    <div class="sec">Cronologia</div>
-    <div class="hist" id="hist"></div>
+  useEffect(() => {
+    const i = setInterval(() => setClock(new Date()), 1000);
+    return () => { clearInterval(i); if (stream) stream.getTracks().forEach(t => t.stop()); };
+  }, [stream]);
 
-    <div class="sec">Modello</div>
-    <input id="modelName" class="field" placeholder="Nome modello (es. openai)" />
-    <input id="apiEndpoint" class="field" placeholder="Endpoint (vuoto = Pollinations gratuito)" />
-    <input id="apiKey" class="field" type="password" placeholder="Chiave API (opzionale)" />
-    <p class="note"><b>Senza chiave:</b> funziona direttamente tramite il canale gratuito. <b>Con chiave:</b> puoi usare Groq (<code>gsk_...</code>), Google Gemini o OpenAI incollando chiave, endpoint e modello.</p>
-    <button class="btn ghost" id="testAi" style="margin-top:8px">Verifica connessione IA</button>
+  const toggleScreen = async () => {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      setStream(null);
+      return;
+    }
+    try {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        alert("La condivisione schermo non è supportata su questo browser mobile.");
+        return;
+      }
+      const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      s.getVideoTracks()[0].onended = () => setStream(null);
+      setStream(s);
+      if (videoRef.current) videoRef.current.srcObject = s;
+    } catch (e) {
+      alert("Condivisione schermo annullata o non consentita.");
+    }
+  };
 
-    <div class="sec">Voce</div>
-    <div class="setting"><span>Lettura automatica</span><input type="checkbox" id="autoSpeak" /></div>
-    <div class="setting"><span>Velocità</span><input type="range" id="rate" min="0.7" max="1.4" step="0.05" value="1" style="width:55%" /></div>
-    <div class="setting"><span>Voce</span><select id="voiceSel" style="width:60%"></select></div>
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 60, color: '#e0f2fe', overflow: 'auto', background: 'rgba(2,6,17,0.92)' }}>
+      <Bg hud pulse={speaking || dictating} />
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10, padding: 14, minHeight: '100%' }}>
+        <div style={{ ...panelStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <b style={{ color: CY, letterSpacing: 2 }}>J.A.R.V.I.S. COMMAND CENTER</b>
+          <span>{clock.toLocaleTimeString('it-IT')}</span>
+          <button onClick={onClose} style={{ ...panelStyle, padding: '4px 10px', color: '#fff', cursor: 'pointer' }}>✕ Chiudi</button>
+        </div>
 
-    <div class="sec">Aspetto</div>
-    <div class="swatches" id="swatches"></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div style={panelStyle}><b>RAM Hardware:</b> {tele.ram}</div>
+          <div style={panelStyle}><b>Batteria:</b> {tele.bat}</div>
+          <div style={panelStyle}><b>Stato Rete:</b> {tele.net}</div>
+          <div style={panelStyle}><b>Messaggi Sessione:</b> {count}</div>
+        </div>
 
-    <div class="sec">Dati</div>
-    <div class="setting"><span>Posizione (opzionale)</span><button class="chipbtn" id="gpsBtn">Attiva</button></div>
-    <div class="setting"><span>Notifiche</span><button class="chipbtn" id="notifBtn">Attiva</button></div>
-    <button class="btn ghost" id="clearAll" style="margin-top:14px">Cancella tutti i dati locali</button>
-  </aside>
+        <div style={panelStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <b style={{ color: CY }}>CONDIVISIONE SCHERMO</b>
+            <button onClick={toggleScreen} style={{ ...panelStyle, padding: '4px 8px', color: stream ? '#fda4af' : '#fff' }}>
+              {stream ? 'Interrompi' : '🖥️ Avvia Schermo'}
+            </button>
+          </div>
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            style={{ width: '100%', height: stream ? 150 : 0, borderRadius: 8, background: '#000', display: stream ? 'block' : 'none', border: '1px solid ' + CY }}
+          />
+        </div>
 
-  <!-- JARVIS HUD -->
-  <div class="hud" id="hud">
-    <div class="hud-head"><span>J.A.R.V.I.S. · DISPOSITIVO</span><button id="closeHud">✕</button></div>
-    <div class="grid">
-      <div class="metric"><b id="mRam">—</b><span>Memoria</span></div>
-      <div class="metric"><b id="mCpu">—</b><span>Core CPU</span></div>
-      <div class="metric"><b id="mBat">—</b><span>Batteria</span></div>
-      <div class="metric"><b id="mNet">—</b><span>Rete</span></div>
-    </div>
-    <video id="screenVideo" autoplay muted playsinline></video>
-    <button class="btn" id="shareBtn" style="background:#0891b2">🖥️ Condividi schermo</button>
-    <p class="note">I dati sono letti dal browser; se un valore non è disponibile viene mostrato “—”. La condivisione schermo resta locale: nulla viene inviato all'IA.</p>
-  </div>
+        <div style={{ ...panelStyle, flex: 1, maxHeight: 160, overflow: 'auto' }}>
+          <b style={{ color: CY }}>ULTIMA RISPOSTA ELABORATA:</b>
+          <div style={{ marginTop: 4 }}>{last || 'In attesa di comandi vocali o testuali...'}</div>
+        </div>
 
-  <!-- Welcome -->
-  <section class="welcome" id="welcome">
-    <div style="color:var(--accent-2);font-weight:800;font-size:12px;letter-spacing:1.5px;margin-bottom:8px">OMNI AI</div>
-    <h1>Informazione chiara.<br>Risposte affidabili.</h1>
-    <p>Notizie dalle agenzie italiane in tempo reale, spiegazioni basate su fonti e voce naturale. Dove non ho dati, te lo dico.</p>
-    <button class="btn" id="startBtn">Inizia</button>
-  </section>
-
-  <!-- Header -->
-  <header>
-    <div class="h-left">
-      <button class="icon-btn" id="openSide" aria-label="Menu">☰</button>
-      <div>
-        <div class="title">Omni AI</div>
-        <div class="status"><span class="dot" id="netDot"></span><span id="netTxt">Online</span></div>
+        <button onClick={onTalk} style={{ ...panelStyle, padding: 14, color: '#fff', fontWeight: 800, borderColor: dictating ? '#f43f5e' : CY, textAlign: 'center' }}>
+          {dictating ? '● IN ASCOLTO... PARLA ORA' : '🎙️ PARLA CON J.A.R.V.I.S.'}
+        </button>
       </div>
     </div>
-    <button class="pill" id="jarvisBtn">⚡ J.A.R.V.I.S.</button>
-  </header>
-
-  <main id="chat" aria-live="polite"></main>
-  <div class="typing" id="typing"><i></i><i></i><i></i> <span id="typingTxt">Sto elaborando…</span></div>
-
-  <div class="chips" id="chips"></div>
-  <footer class="composer">
-    <button class="round" id="micBtn" aria-label="Dettatura">🎙️</button>
-    <input id="input" type="text" placeholder="Scrivi una domanda…" autocomplete="off" />
-    <button class="round send" id="sendBtn" aria-label="Invia">➤</button>
-  </footer>
-  <div class="toast" id="toast"></div>
-</div>
-
-<script>
-"use strict";
-/* =====================================================================
-   OMNI AI — struttura
-   1. Config e stato        4. Notizie (RSS) e conoscenza (Wikipedia)
-   2. Utility               5. Motore IA con contesto e cronologia
-   3. Voce (TTS + STT)      6. Interfaccia, sessioni, impostazioni
-   ===================================================================== */
-
-/* ---------- 1. CONFIG E STATO ---------- */
-const CFG = {
-  defaultEndpoint: "https://gen.pollinations.ai/v1/chat/completions",
-  rssProxy:   "https://api.rss2json.com/v1/api.json?rss_url=",
-  timeoutMs:  25000,
-  maxHistory: 10,
-  maxSessions: 30,
-  feeds: {
-    top:       { label: "Ultime notizie", url: "https://www.ansa.it/sito/notizie/topnews/topnews_rss.xml" },
-    politica:  { label: "Politica",       url: "https://www.ansa.it/sito/notizie/politica/politica_rss.xml" },
-    economia:  { label: "Economia",       url: "https://www.ansa.it/sito/notizie/economia/economia_rss.xml" },
-    mondo:     { label: "Mondo",          url: "https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml" },
-    cronaca:   { label: "Cronaca",        url: "https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml" },
-    sport:     { label: "Sport",          url: "https://www.ansa.it/sito/notizie/sport/sport_rss.xml" },
-    tecnologia:{ label: "Tecnologia",     url: "https://www.ansa.it/sito/notizie/tecnologia/tecnologia_rss.xml" }
-  },
-  themes: [
-    { n: "Blu",    a: "#3b82f6", u: "#2563eb" },
-    { n: "Verde",  a: "#10b981", u: "#047857" },
-    { n: "Viola",  a: "#8b5cf6", u: "#7c3aed" },
-    { n: "Ciano",  a: "#22d3ee", u: "#0e7490" }
-  ]
-};
-
-const store = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
-  wipe()    { try { localStorage.clear(); } catch {} }
-};
-
-const state = {
-  sessions: store.get("omni.sessions", []),
-  currentId: null,
-  settings: Object.assign({ model: "openai", endpoint: "", apiKey: "", autoSpeak: false, rate: 1, voice: "", theme: 0 }, store.get("omni.settings", {})),
-  coords: null,
-  busy: false
-};
-
-/* ---------- 2. UTILITY ---------- */
-const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-function toast(msg) {
-  const t = $("toast");
-  t.textContent = msg;
-  t.classList.add("on");
-  clearTimeout(toast.t);
-  toast.t = setTimeout(() => t.classList.remove("on"), 2600);
-}
-
-async function fetchRaw(url, opts = {}) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), CFG.timeoutMs);
-  try { return await fetch(url, Object.assign({ signal: ctrl.signal }, opts)); }
-  finally { clearTimeout(timer); }
-}
-
-async function fetchJson(url, opts = {}) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), CFG.timeoutMs);
-  try {
-    const res = await fetch(url, Object.assign({ signal: ctrl.signal }, opts));
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return await res.json();
-  } finally { clearTimeout(timer); }
-}
-
-function renderMd(text) {
-  const lines = esc(text).split("\n");
-  let html = "", inList = false;
-  for (const raw of lines) {
-    const line = raw.trim();
-    const li = line.match(/^[-*•]\s+(.*)/);
-    if (li) {
-      if (!inList) { html += "<ul>"; inList = true; }
-      html += "<li>" + inline(li[1]) + "</li>";
-    } else {
-      if (inList) { html += "</ul>"; inList = false; }
-      if (line) html += "<p>" + inline(line) + "</p>";
-    }
-  }
-  if (inList) html += "</ul>";
-  return html;
-  function inline(s) { return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
-}
-
-function plainText(md) {
-  return md.replace(/\*\*/g, "").replace(/^[-*•]\s+/gm, "").replace(/\s+/g, " ").trim();
-}
-
-function timeAgo(dateStr) {
-  const d = new Date(String(dateStr).replace(" ", "T") + (String(dateStr).includes("T") || String(dateStr).includes("Z") ? "" : "Z"));
-  if (isNaN(d)) return "";
-  const m = Math.round((Date.now() - d.getTime()) / 60000);
-  if (m < 1) return "adesso";
-  if (m < 60) return m + " min fa";
-  if (m < 1440) return Math.round(m / 60) + " h fa";
-  return d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
-}
-
-function todayLabel() {
-  return new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-}
-
-/* ---------- 3. VOCE ---------- */
-const Voice = {
-  speaking: false,
-  voices: [],
-  queue: [],
-
-  init() {
-    if (!("speechSynthesis" in window)) return;
-    const load = () => { this.voices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith("it")); this.fillSelect(); };
-    load();
-    speechSynthesis.onvoiceschanged = load;
-  },
-
-  fillSelect() {
-    const sel = $("voiceSel");
-    sel.innerHTML = '<option value="">Automatica</option>' +
-      this.voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)}</option>`).join("");
-    sel.value = state.settings.voice || "";
-  },
-
-  pick() {
-    if (state.settings.voice) {
-      const chosen = this.voices.find(v => v.name === state.settings.voice);
-      if (chosen) return chosen;
-    }
-    const prefer = ["natural", "neural", "google", "elsa", "alice", "luca", "cosimo", "premium", "enhanced"];
-    for (const key of prefer) {
-      const v = this.voices.find(v => v.name.toLowerCase().includes(key));
-      if (v) return v;
-    }
-    return this.voices[0] || null;
-  },
-
-  chunk(text) {
-    const parts = text.match(/[^.!?;:]+[.!?;:]?/g) || [text];
-    const out = []; let buf = "";
-    for (const p of parts) {
-      if ((buf + p).length > 190 && buf) { out.push(buf.trim()); buf = p; }
-      else buf += p;
-    }
-    if (buf.trim()) out.push(buf.trim());
-    return out;
-  },
-
-  speak(text, onEnd) {
-    if (!("speechSynthesis" in window)) { toast("Sintesi vocale non supportata."); return; }
-    this.stop();
-    const clean = plainText(text)
-      .replace(/https?:\/\/\S+/g, "")
-      .replace(/(\d+),(\d+)/g, "$1 virgola $2")
-      .replace(/%/g, " per cento")
-      .replace(/€/g, " euro");
-    this.queue = this.chunk(clean);
-    this.speaking = true;
-    const voice = this.pick();
-    const next = () => {
-      if (!this.speaking || !this.queue.length) { this.speaking = false; onEnd && onEnd(); return; }
-      const u = new SpeechSynthesisUtterance(this.queue.shift());
-      u.lang = "it-IT";
-      u.rate = Number(state.settings.rate) || 1;
-      u.pitch = 1;
-      if (voice) u.voice = voice;
-      u.onend = next;
-      u.onerror = () => { this.speaking = false; onEnd && onEnd(); };
-      speechSynthesis.speak(u);
-    };
-    next();
-  },
-
-  stop() {
-    this.speaking = false;
-    this.queue = [];
-    if ("speechSynthesis" in window) speechSynthesis.cancel();
-  },
-
-  rec: null,
-  listen(onResult, onState) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { toast("Dettatura non supportata da questo browser."); return; }
-    if (this.rec) { this.rec.stop(); return; }
-    const r = new SR();
-    r.lang = "it-IT";
-    r.interimResults = true;
-    r.continuous = false;
-    r.onstart = () => onState(true);
-    r.onresult = e => onResult(Array.from(e.results).map(x => x[0].transcript).join(""), e.results[e.results.length - 1].isFinal);
-    r.onerror = e => { if (e.error === "not-allowed") toast("Permesso microfono negato."); };
-    r.onend = () => { this.rec = null; onState(false); };
-    this.rec = r;
-    r.start();
-  }
-};
-
-/* ---------- 4. NOTIZIE E CONOSCENZA ---------- */
-const News = {
-  cache: {},
-
-  detectTopic(q) {
-    const t = q.toLowerCase();
-    const map = [
-      ["politica",   /politic|governo|parlamento|elezion|premier|ministr|manovra|legge/],
-      ["economia",   /econom|borsa|inflazion|spread|pil|mercat|tasse|lavoro|stipend/],
-      ["mondo",      /mondo|esteri|guerra|ucraina|gaza|israel|usa|trump|cina|europa|ue\b|onu|nato/],
-      ["cronaca",    /cronaca|incidente|omicid|arrest|maltempo|terremoto|processo/],
-      ["sport",      /sport|calcio|serie a|champions|tennis|formula 1|f1|olimpiad/],
-      ["tecnologia", /tecnolog|intelligenza artificiale|\bia\b|smartphone|spazio|nasa|software/]
-    ];
-    for (const [key, re] of map) if (re.test(t)) return key;
-    return "top";
-  },
-
-  isNewsQuery(q) {
-    return /notizi|attualit|tg5|tg\b|telegiornal|oggi|ultime|ultima ora|cosa succede|breaking|cronaca|accaduto|news/.test(q.toLowerCase());
-  },
-
-  async load(topic) {
-    const hit = this.cache[topic];
-    if (hit && Date.now() - hit.t < 5 * 60000) return hit.items;
-    const feed = CFG.feeds[topic] || CFG.feeds.top;
-    const data = await fetchJson(CFG.rssProxy + encodeURIComponent(feed.url));
-    const items = (data.items || []).slice(0, 8).map(i => ({
-      title: (i.title || "").trim(),
-      link: i.link,
-      date: i.pubDate,
-      desc: String(i.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 280),
-      source: "ANSA"
-    })).filter(i => i.title);
-    this.cache[topic] = { t: Date.now(), items };
-    return items;
-  }
-};
-
-const Knowledge = {
-  async lookup(query) {
-    try {
-      const clean = query.replace(/[?!.]/g, " ").replace(/\b(parlami|spiegami|cos'è|cosa è|come funziona|dimmi|di|del|della|un|una|il|lo|la)\b/gi, " ").replace(/\s+/g, " ").trim();
-      if (clean.length < 3) return null;
-      const s = await fetchJson(`https://it.wikipedia.org/w/api.php?action=query&list=search&srlimit=1&format=json&origin=*&srsearch=${encodeURIComponent(clean)}`);
-      const title = s.query && s.query.search && s.query.search[0] && s.query.search[0].title;
-      if (!title) return null;
-      const sum = await fetchJson(`https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
-      if (!sum.extract) return null;
-      return { title: sum.title, text: sum.extract.slice(0, 1200), url: sum.content_urls && sum.content_urls.desktop && sum.content_urls.desktop.page };
-    } catch { return null; }
-  }
-};
-
-/* ---------- 5. MOTORE IA ---------- */
-function systemPrompt(extra) {
-  return [
-    "Sei Omni AI, un assistente italiano competente, sobrio e onesto.",
-    `Data di oggi: ${todayLabel()}.`,
-    "Regole:",
-    "1. Rispondi sempre in italiano corretto, in modo chiaro e ben strutturato (frasi brevi, elenchi puntati quando servono, grassetto solo per i concetti chiave).",
-    "2. Parti dalla risposta, poi aggiungi contesto. Evita giri di parole, slogan e toni enfatici.",
-    "3. Per l'attualità usa ESCLUSIVAMENTE i titoli e le fonti forniti nel blocco CONTESTO. Non inventare fatti, numeri, citazioni o dichiarazioni. Se il contesto non basta, dillo apertamente.",
-    "4. Distingui fatti accertati, interpretazioni e previsioni. Su temi controversi presenta le posizioni principali in modo equilibrato.",
-    "5. Se non sei sicuro o la tua conoscenza potrebbe essere superata, segnalalo in una frase.",
-    "6. Non fingere di avere accesso a dati che non hai (TG5 in diretta, prezzi dei negozi, posizione precisa).",
-    "7. Per salute, legge e finanza fornisci informazioni generali e consiglia un professionista quando serve.",
-    extra ? "\nCONTESTO:\n" + extra : ""
-  ].join("\n");
-}
-
-async function askAI(history, context) {
-  const key = (state.settings.apiKey || "").trim();
-  const endpoint = (state.settings.endpoint || "").trim();
-  const model = (state.settings.model || "openai").trim();
-  const sys = systemPrompt(context);
-
-  // CASO 1: L'utente ha inserito una chiave API o un endpoint dedicato (Groq, OpenAI, Gemini, ecc.)
-  if (key || endpoint) {
-    const url = endpoint || CFG.defaultEndpoint;
-    const headers = { "Content-Type": "application/json" };
-    if (key) headers.Authorization = "Bearer " + key;
-
-    const messages = [{ role: "system", content: sys }, ...history];
-    let res;
-    try {
-      res = await fetchRaw(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ model, messages, temperature: 0.35 })
-      });
-    } catch (e) {
-      throw new Error(e.name === "AbortError" ? "Timeout: il servizio non ha risposto in tempo." : "Errore di connessione (" + e.message + ").");
-    }
-    if (res.status === 401 || res.status === 403) throw new Error("Chiave API non valida o non autorizzata (HTTP " + res.status + ").");
-    if (res.status === 429) throw new Error("Limite richieste raggiunto, riprova tra poco.");
-    if (!res.ok) throw new Error("Errore HTTP " + res.status);
-    const data = await res.json();
-    const out = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if (!out || out.trim().length < 2) throw new Error("Risposta vuota dal servizio.");
-    return out.trim();
-  }
-
-  // CASO 2: Nessuna chiave inserita -> Accesso diretto al canale pubblico gratuito
-  const lastUserMsg = history.length ? history[history.length - 1].content : "Rispondi: ok";
-  const fullPrompt = `${sys}\n\nRichiesta utente:\n${lastUserMsg}`;
-  
-  try {
-    const res = await fetchRaw(`https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=openai`);
-    if (!res.ok) throw new Error("Server pubblico occupato (HTTP " + res.status + ")");
-    const text = await res.text();
-    if (!text || text.trim().length < 2) throw new Error("Risposta vuota.");
-    return text.trim();
-  } catch (err) {
-    throw new Error("Impossibile contattare l'IA gratuita (" + err.message + "). Inserisci una chiave Groq o Gemini nelle impostazioni.");
-  }
-}
-
-async function respond(query) {
-  const session = currentSession();
-  const history = session.messages
-    .slice(-CFG.maxHistory)
-    .map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
-
-  const wantsNews = News.isNewsQuery(query);
-  let context = "", cards = null, sources = [];
-
-  if (wantsNews) {
-    setTyping("Consulto le agenzie di stampa…");
-    const topic = News.detectTopic(query);
-    try {
-      const items = await News.load(topic);
-      if (items.length) {
-        cards = { label: CFG.feeds[topic].label, items };
-        context = "TITOLI RECENTI (fonte ANSA, ordinati dal più recente):\n" + items.map((n, i) =>
-          `${i + 1}. [${timeAgo(n.date)}] ${n.title}${n.desc ? " — " + n.desc : ""}`).join("\n");
-      }
-    } catch {}
-    if (/tg5/i.test(query)) {
-      context += "\nNOTA: i contenuti del TG5 non sono accessibili in questa app; spiega che i titoli mostrati provengono da ANSA e rimanda al sito ufficiale del TG5.";
-    }
-    if (!context) context = "NOTA: al momento non è stato possibile scaricare le notizie. Dillo all'utente e non inventare titoli.";
-  } else {
-    setTyping("Cerco fonti di contesto…");
-    const wiki = await Knowledge.lookup(query);
-    if (wiki) {
-      context = `VOCE ENCICLOPEDICA (Wikipedia: ${wiki.title}):\n${wiki.text}`;
-      sources.push({ title: "Wikipedia · " + wiki.title, url: wiki.url });
-    }
-  }
-
-  setTyping("Elaboro la risposta…");
-  let answer;
-  const instruction = wantsNews
-    ? query + "\n\n(Fai una sintesi ordinata dei fatti principali emersi dal contesto, in 4-6 punti, indicando che la fonte è ANSA. Chiudi con una riga su ciò che non si sa ancora, se rilevante.)"
-    : query;
-  try {
-    answer = await askAI([...history, { role: "user", content: instruction }], context);
-  } catch (err) {
-    answer = "⚠️ **Motore IA non disponibile:** " + err.message + "\n";
-    if (cards) answer += "Ti mostro comunque i titoli più recenti di " + cards.label.toLowerCase() + " qui sotto.";
-    else if (context.startsWith("VOCE")) answer += "Intanto ecco cosa dice l'enciclopedia:\n" + context.split("\n").slice(1).join(" ").slice(0, 700);
-    else answer += "Apri le impostazioni (☰) e controlla endpoint e chiave API.";
-  }
-  return { text: answer, cards, sources };
-}
-
-/* ---------- 6. INTERFACCIA ---------- */
-function currentSession() {
-  let s = state.sessions.find(x => x.id === state.currentId);
-  if (!s) {
-    s = { id: uid(), title: "Nuova conversazione", messages: [], ts: Date.now() };
-    state.sessions.unshift(s);
-    state.currentId = s.id;
-  }
-  return s;
-}
-
-function persist() {
-  state.sessions = state.sessions.slice(0, CFG.maxSessions);
-  store.set("omni.sessions", state.sessions);
-  store.set("omni.settings", state.settings);
-}
-
-function setTyping(txt) {
-  $("typingTxt").textContent = txt || "Sto elaborando…";
-  $("typing").classList.toggle("on", !!txt);
-}
-
-function renderMessage(m) {
-  const row = document.createElement("div");
-  row.className = "row " + (m.role === "user" ? "user" : "ai");
-  if (m.role === "user") {
-    row.innerHTML = `<div class="bubble">${esc(m.text)}</div>`;
-  } else {
-    let html = `<div class="bubble">${renderMd(m.text)}`;
-    if (m.cards && m.cards.items.length) {
-      html += `<div class="news"><div class="news-head">🔴 ${esc(m.cards.label)} · ANSA</div>` +
-        m.cards.items.slice(0, 6).map(n =>
-          `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}<small>${esc(n.source)} · ${esc(timeAgo(n.date))}</small></a>`).join("") +
-        `</div>`;
-    }
-    if (m.sources && m.sources.length) {
-      html += `<div class="actions">` + m.sources.map(s =>
-        `<a class="chipbtn" style="text-decoration:none;color:inherit" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">📚 ${esc(s.title)}</a>`).join("") + `</div>`;
-    }
-    html += `<div class="actions"><button class="chipbtn listen">🔊 Ascolta</button><button class="chipbtn copy">📋 Copia</button>`;
-    if (/tg5/i.test(m.query || "")) html += `<a class="chipbtn" style="text-decoration:none;color:inherit" href="https://www.mediasetinfinity.mediaset.it/" target="_blank" rel="noopener noreferrer">📺 Sito TG5</a>`;
-    html += `</div></div>`;
-    row.innerHTML = html;
-
-    const listen = row.querySelector(".listen");
-    listen.onclick = () => {
-      if (Voice.speaking) { Voice.stop(); listen.classList.remove("playing"); listen.textContent = "🔊 Ascolta"; return; }
-      listen.classList.add("playing"); listen.textContent = "⏹ Stop";
-      Voice.speak(m.text, () => { listen.classList.remove("playing"); listen.textContent = "🔊 Ascolta"; });
-    };
-    row.querySelector(".copy").onclick = async () => {
-      try { await navigator.clipboard.writeText(plainText(m.text)); toast("Copiato negli appunti"); } catch { toast("Copia non disponibile"); }
-    };
-    row._listen = listen;
-  }
-  $("chat").appendChild(row);
-  $("chat").scrollTop = $("chat").scrollHeight;
-  return row;
-}
-
-function renderAll() {
-  $("chat").innerHTML = "";
-  const s = state.sessions.find(x => x.id === state.currentId);
-  if (!s || !s.messages.length) {
-    renderMessage({ role: "ai", text: "Ciao! Posso aiutarti con **notizie di attualità** (da fonti ANSA aggiornate), spiegazioni, studio e curiosità.\n- Chiedimi i fatti del giorno, per tema: politica, economia, mondo, sport.\n- Usa il microfono per dettare e “Ascolta” per sentire le risposte.\nSe non ho dati affidabili su qualcosa, te lo dico." });
-    return;
-  }
-  s.messages.forEach(renderMessage);
-}
-
-function renderHistory() {
-  const box = $("hist");
-  box.innerHTML = "";
-  state.sessions.filter(s => s.messages.length).forEach(s => {
-    const el = document.createElement("div");
-    el.className = "hist-item";
-    el.innerHTML = `<span>💬 ${esc(s.title)}</span><button aria-label="Elimina">🗑</button>`;
-    el.querySelector("span").onclick = () => { state.currentId = s.id; renderAll(); toggleSide(false); };
-    el.querySelector("button").onclick = () => {
-      state.sessions = state.sessions.filter(x => x.id !== s.id);
-      if (state.currentId === s.id) state.currentId = null;
-      persist(); renderHistory(); renderAll();
-    };
-    box.appendChild(el);
-  });
-  if (!box.children.length) box.innerHTML = '<div class="note">Nessuna conversazione salvata.</div>';
-}
-
-async function submit(textOverride) {
-  if (state.busy) return;
-  const input = $("input");
-  const text = (textOverride ?? input.value).trim();
-  if (!text) return;
-  input.value = "";
-  state.busy = true;
-  Voice.stop();
-
-  const session = currentSession();
-  const userMsg = { role: "user", text };
-  session.messages.push(userMsg);
-  if (session.messages.length === 1) session.title = text.slice(0, 40);
-  renderMessage(userMsg);
-
-  setTyping("Sto elaborando…");
-  try {
-    const r = await respond(text);
-    const aiMsg = { role: "ai", text: r.text, cards: r.cards, sources: r.sources, query: text };
-    session.messages.push(aiMsg);
-    const row = renderMessage(aiMsg);
-    if (state.settings.autoSpeak && row._listen) row._listen.click();
-  } catch {
-    renderMessage({ role: "ai", text: "Si è verificato un errore imprevisto. Riprova." });
-  }
-  setTyping(null);
-  state.busy = false;
-  persist(); renderHistory();
-}
-
-function toggleSide(open) {
-  $("side").classList.toggle("open", open);
-  $("overlay").classList.toggle("on", open);
-}
-
-function applyTheme(i) {
-  const t = CFG.themes[i] || CFG.themes[0];
-  document.documentElement.style.setProperty("--accent", t.a);
-  document.documentElement.style.setProperty("--user", t.u);
-  state.settings.theme = i;
-  persist();
-}
-
-/* ---------- J.A.R.V.I.S. ---------- */
-async function readTelemetry() {
-  $("mRam").textContent = navigator.deviceMemory ? navigator.deviceMemory + " GB" : "—";
-  $("mCpu").textContent = navigator.hardwareConcurrency || "—";
-  const c = navigator.connection;
-  $("mNet").textContent = navigator.onLine ? (c && c.effectiveType ? c.effectiveType.toUpperCase() : "Online") : "Offline";
-  if (navigator.getBattery) {
-    try { const b = await navigator.getBattery(); $("mBat").textContent = Math.round(b.level * 100) + "%" + (b.charging ? " ⚡" : ""); }
-    catch { $("mBat").textContent = "—"; }
-  } else $("mBat").textContent = "—";
-}
-
-function toggleJarvis(force) {
-  const on = force ?? !$("hud").classList.contains("on");
-  $("hud").classList.toggle("on", on);
-  $("app").classList.toggle("jarvis", on);
-  $("jarvisBtn").classList.toggle("on", on);
-  if (on) readTelemetry();
-}
-
-async function shareScreen() {
-  try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const v = $("screenVideo");
-    v.style.display = "block";
-    v.srcObject = stream;
-    stream.getVideoTracks()[0].onended = () => { v.style.display = "none"; };
-    toast("Schermo condiviso in locale.");
-  } catch { toast("Condivisione schermo non disponibile o annullata."); }
-}
-
-function updateNet() {
-  const on = navigator.onLine;
-  $("netDot").classList.toggle("off", !on);
-  $("netTxt").textContent = on ? "Online" : "Offline";
-}
-
-/* ---------- Avvio e collegamenti ---------- */
-function init() {
-  Voice.init();
-
-  // Swatches
-  $("swatches").innerHTML = CFG.themes.map((t, i) => `<div class="sw" title="${t.n}" style="background:${t.a}" data-i="${i}"></div>`).join("");
-  $("swatches").onclick = e => { if (e.target.dataset.i) applyTheme(+e.target.dataset.i); };
-  applyTheme(state.settings.theme);
-
-  // Impostazioni
-  $("modelName").value = state.settings.model || "openai";
-  $("modelName").onchange = e => { state.settings.model = e.target.value.trim() || "openai"; persist(); };
-  $("apiEndpoint").value = state.settings.endpoint || "";
-  $("apiEndpoint").onchange = e => { state.settings.endpoint = e.target.value.trim(); persist(); };
-  $("apiKey").value = state.settings.apiKey || "";
-  $("apiKey").onchange = e => { state.settings.apiKey = e.target.value.trim(); persist(); };
-  $("testAi").onclick = async () => {
-    toast("Verifico la connessione…");
-    try { await askAI([{ role: "user", content: "Rispondi solo con la parola: ok" }], ""); toast("✅ Connessione IA funzionante"); }
-    catch (e) { toast("❌ " + e.message); }
-  };
-  $("autoSpeak").checked = state.settings.autoSpeak;
-  $("autoSpeak").onchange = e => { state.settings.autoSpeak = e.target.checked; persist(); };
-  $("rate").value = state.settings.rate;
-  $("rate").onchange = e => { state.settings.rate = e.target.value; persist(); };
-  $("voiceSel").onchange = e => { state.settings.voice = e.target.value; persist(); };
-
-  // Suggerimenti
-  const chips = [
-    ["📰 Notizie di oggi", "Quali sono le notizie più importanti di oggi?"],
-    ["🏛️ Politica", "Cosa succede oggi in politica italiana?"],
-    ["💶 Economia", "Ultime notizie di economia"],
-    ["🌍 Dal mondo", "Cosa sta succedendo nel mondo oggi?"],
-    ["⚽ Sport", "Ultime notizie sportive"],
-    ["🔬 Fusione nucleare", "Spiegami come funziona un reattore a fusione nucleare"]
-  ];
-  $("chips").innerHTML = chips.map((c, i) => `<button class="chip" data-i="${i}">${c[0]}</button>`).join("");
-  $("chips").onclick = e => { const b = e.target.closest(".chip"); if (b) submit(chips[b.dataset.i][1]); };
-
-  // Pulsanti
-  $("openSide").onclick = () => toggleSide(true);
-  $("closeSide").onclick = $("overlay").onclick = () => toggleSide(false);
-  $("newChat").onclick = () => { state.currentId = null; Voice.stop(); renderAll(); toggleSide(false); };
-  $("sendBtn").onclick = () => submit();
-  $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } });
-  $("jarvisBtn").onclick = () => toggleJarvis();
-  $("closeHud").onclick = () => toggleJarvis(false);
-  $("shareBtn").onclick = shareScreen;
-  $("startBtn").onclick = () => $("welcome").classList.add("hide");
-
-  $("micBtn").onclick = () => Voice.listen(
-    (txt, final) => { $("input").value = txt; if (final) submit(); },
-    on => $("micBtn").classList.toggle("rec", on)
   );
-
-  $("gpsBtn").onclick = () => {
-    if (!navigator.geolocation) return toast("Geolocalizzazione non supportata.");
-    navigator.geolocation.getCurrentPosition(
-      p => { state.coords = { lat: p.coords.latitude, lon: p.coords.longitude }; toast("Posizione attivata."); },
-      () => toast("Permesso posizione negato.")
-    );
-  };
-  $("notifBtn").onclick = async () => {
-    if (!("Notification" in window)) return toast("Notifiche non supportate.");
-    const r = await Notification.requestPermission();
-    toast(r === "granted" ? "Notifiche attivate." : "Notifiche non consentite.");
-  };
-  $("clearAll").onclick = () => {
-    if (!confirm("Eliminare cronologia e impostazioni salvate su questo dispositivo?")) return;
-    store.wipe(); state.sessions = []; state.currentId = null;
-    renderAll(); renderHistory(); toast("Dati cancellati.");
-  };
-
-  window.addEventListener("online", updateNet);
-  window.addEventListener("offline", updateNet);
-  updateNet();
-
-  if (state.sessions.length) $("welcome").classList.add("hide");
-  renderHistory();
-  renderAll();
 }
 
-init();
-</script>
-</body>
-</html>
+/* ---------- APP PRINCIPALE ---------- */
+export default function App() {
+  const [stage, setStage] = useState('app');
+  const [user, setUser] = useState(() => st.get('omni:user', { email: VIP, premium: true, used: 0 }));
+  const [sessions, setSessions] = useState(() => st.get('omni:sessions', [{ id: '1', title: 'Prima Sessione', messages: [] }]));
+  const [currentSessionId, setCurrentSessionId] = useState('1');
+
+  // Impostazioni Tema & Voce
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [accent, setAccent] = useState(() => st.get('omni:accent', CY));
+  const [voiceList, setVoiceList] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(() => st.get('omni:voice', ''));
+  const [voiceRate, setVoiceRate] = useState(() => st.get('omni:rate', 1));
+  const [apiKey, setApiKey] = useState(() => st.get('omni:key', ''));
+
+  // Chat & Telemetria
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [dictating, setDictating] = useState(false);
+  const [hud, setHud] = useState(false);
+  const [tele, setTele] = useState({ ram: '8 GB', bat: '100% ⚡', net: 'Online' });
+
+  const chatScrollRef = useRef(null);
+  const speechRecRef = useRef(null);
+
+  const curSession = sessions.find(s => s.id === currentSessionId) || sessions[0];
+  const msgs = curSession?.messages || [];
+
+  useEffect(() => {
+    st.set('omni:sessions', sessions);
+    st.set('omni:user', user);
+    st.set('omni:accent', accent);
+    st.set('omni:voice', selectedVoice);
+    st.set('omni:rate', voiceRate);
+    st.set('omni:key', apiKey);
+  }, [sessions, user, accent, selectedVoice, voiceRate, apiKey]);
+
+  useEffect(() => {
+    if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+  }, [msgs, busy]);
+
+  useEffect(() => {
+    // Caricamento elenco voci
+    const updateVoices = () => {
+      if ('speechSynthesis' in window) {
+        setVoiceList(speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('it')));
+      }
+    };
+    updateVoices();
+    if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = updateVoices;
+
+    // Telemetria base
+    const n = navigator;
+    setTele({
+      ram: n.deviceMemory ? n.deviceMemory + ' GB' : '8 GB',
+      bat: '95% ⚡',
+      net: n.onLine ? 'Online' : 'Offline'
+    });
+    if (n.getBattery) {
+      n.getBattery().then(b => setTele(t => ({ ...t, bat: Math.round(b.level * 100) + '%' }))).catch(() => {});
+    }
+  }, []);
+
+  // GESTIONE NUOVA CHAT & CRONOLOGIA
+  const newChat = () => {
+    const newId = String(Date.now());
+    const newSess = { id: newId, title: 'Nuova Conversazione', messages: [] };
+    setSessions([newSess, ...sessions]);
+    setCurrentSessionId(newId);
+    setMenuOpen(false);
+    stopVoice();
+  };
+
+  const deleteSession = (id, e) => {
+    e.stopPropagation();
+    if (sessions.length === 1) return;
+    const remaining = sessions.filter(s => s.id !== id);
+    setSessions(remaining);
+    if (currentSessionId === id) setCurrentSessionId(remaining[0].id);
+  };
+
+  // ASCOLTO VOCALE (DETTATURA) RISOLTO
+  const toggleDictation = () => {
+    if (dictating) {
+      if (speechRecRef.current) speechRecRef.current.stop();
+      setDictating(false);
+      return;
+    }
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      alert("Il tuo browser non supporta il microfono vocale.");
+      return;
+    }
+
+    stopVoice();
+    const recognizer = new SR();
+    recognizer.lang = 'it-IT';
+    recognizer.interimResults = true;
+    recognizer.continuous = false;
+
+    recognizer.onstart = () => setDictating(true);
+    recognizer.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+      setInput(transcript);
+    };
+    recognizer.onerror = () => setDictating(false);
+    recognizer.onend = () => setDictating(false);
+
+    speechRecRef.current = recognizer;
+    try {
+      recognizer.start();
+    } catch (e) {
+      setDictating(false);
+    }
+  };
+
+  // LETTURA VOCALE (TTS)
+  const toggleSpeak = (text) => {
+    if (speaking) {
+      stopVoice();
+      setSpeaking(false);
+      return;
+    }
+    setSpeaking(true);
+    speak(text, () => setSpeaking(false), selectedVoice, voiceRate);
+  };
+
+  // INVIO MESSAGGI ALL'AI
+  const send = async (textOverride) => {
+    const txt = (textOverride || input).trim();
+    if (!txt || busy) return;
+
+    stopVoice();
+    setSpeaking(false);
+
+    const userMsg = { id: Date.now(), me: true, text: txt, time: now() };
+    const updatedMessages = [...msgs, userMsg];
+
+    // Aggiorna titolo chat se è il primo messaggio
+    const updatedSessions = sessions.map(s => {
+      if (s.id === currentSessionId) {
+        return {
+          ...s,
+          title: s.messages.length === 0 ? txt.slice(0, 30) : s.title,
+          messages: updatedMessages
+        };
+      }
+      return s;
+    });
+
+    setSessions(updatedSessions);
+    setInput('');
+    setBusy(true);
+
+    try {
+      const history = updatedMessages.map(m => ({ role: m.me ? 'user' : 'assistant', content: m.text }));
+      const res = await askAI(history, apiKey);
+
+      const aiMsg = { id: Date.now() + 1, me: false, text: res.text, sources: res.sources, time: now() };
+      setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, aiMsg] } : s));
+      if (hud) toggleSpeak(res.text);
+    } catch (e) {
+      const errMsg = { id: Date.now() + 1, me: false, text: `⚠️ ${e.message}`, time: now() };
+      setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, errMsg] } : s));
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', background: '#020611', color: '#e0f2fe', overflow: 'hidden' }}>
+      <Bg />
+
+      {/* ================= BARRA LATERALE MENU & IMPOSTAZIONI ================= */}
+      {menuOpen && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'flex' }}>
+          <div onClick={() => setMenuOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)' }} />
+          <div style={{ position: 'relative', width: 310, height: '100%', background: '#091522', borderRight: '1px solid ' + accent, padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 10 }}>
+              <b style={{ color: accent }}>⚡ OMNI MENU</b>
+              <button onClick={() => setMenuOpen(false)} style={{ color: '#fff' }}><X size={20} /></button>
+            </div>
+
+            <button onClick={newChat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, background: accent, color: '#000', borderRadius: 10, fontWeight: 800 }}>
+              <Plus size={16} /> Nuova Conversazione
+            </button>
+
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 6, textTransform: 'uppercase' }}>Cronologia Chat</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                {sessions.map(s => (
+                  <div
+                    key={s.id}
+                    onClick={() => { setCurrentSessionId(s.id); setMenuOpen(false); }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: s.id === currentSessionId ? 'rgba(34,211,238,0.2)' : 'rgba(255,255,255,0.04)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
+                  >
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 210 }}>💬 {s.title}</span>
+                    <button onClick={(e) => deleteSession(s.id, e)} style={{ color: '#94a3b8' }}><Trash2 size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 6, textTransform: 'uppercase' }}>Voce AI</div>
+              <select value={selectedVoice} onChange={e => setSelectedVoice(e.target.value)} style={{ width: '100%', padding: 8, borderRadius: 8, background: '#051827', color: '#fff', border: '1px solid #164e63', fontSize: 12, marginBottom: 8 }}>
+                <option value="">Voce Automatica</option>
+                {voiceList.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
+              </select>
+              <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
+                <span>Velocità Voce:</span>
+                <b>{voiceRate}x</b>
+              </div>
+              <input type="range" min="0.7" max="1.4" step="0.05" value={voiceRate} onChange={e => setVoiceRate(e.target.value)} style={{ width: '100%' }} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 6, textTransform: 'uppercase' }}>Colore Interfaccia</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {['#22d3ee', '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b'].map(c => (
+                  <div key={c} onClick={() => setAccent(c)} style={{ width: 26, height: 26, borderRadius: '50%', background: c, border: accent === c ? '2px solid white' : 'none', cursor: 'pointer' }} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#7dd3fc', marginBottom: 4, textTransform: 'uppercase' }}>Chiave API (Opzionale)</div>
+              <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Incolla chiave Groq o OpenAI..." style={{ width: '100%', padding: 8, borderRadius: 8, background: '#051827', color: '#fff', border: '1px solid #164e63', fontSize: 12 }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= HEADER ================= */}
+      <header style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(3,14,25,.85)', borderBottom: '1px solid rgba(34,211,238,.3)', zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={() => setMenuOpen(true)} style={{ color: '#fff' }}><Menu size={22} /></button>
+          <div>
+            <b style={{ fontSize: 15 }}>⚡ Omni AI</b>
+            <div style={{ fontSize: 11, color: '#fcd34d' }}>👑 VIP Fondatore · Illimitato ({user.email})</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {speaking && <button onClick={() => { stopVoice(); setSpeaking(false); }} style={{ color: '#6ee7b7' }}><Volume2 size={18} /></button>}
+          <button onClick={() => setHud(true)} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 12px', borderRadius: 10, border: '1px solid ' + accent, color: accent, fontWeight: 800, fontSize: 12 }}>
+            <Activity size={14} /> J.A.R.V.I.S.
+          </button>
+        </div>
+      </header>
+
+      {/* ================= AREA CHAT ================= */}
+      <div ref={chatScrollRef} style={{ position: 'relative', flex: 1, overflowY: 'auto', padding: 16 }}>
+        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {msgs.length === 0 && (
+            <div style={{ ...panelStyle, fontSize: 14, lineHeight: 1.6 }}>
+              Ciao! Sistemi aggiornati e pronti. Puoi chiedermi <b>notizie reali, curiosità scientifiche, ricette o supporto per lo studio</b>. Puoi dettare con il microfono e ascoltare le risposte a voce.
+            </div>
+          )}
+          {msgs.map(m => (
+            <div key={m.id} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', maxWidth: '88%', padding: 14, borderRadius: 16, fontSize: 14, lineHeight: 1.55, background: m.me ? '#0e7490' : 'rgba(5,20,35,.88)', border: '1px solid rgba(34,211,238,.25)' }}>
+              <div style={{ whiteSpace: 'pre-line' }}>{m.text}</div>
+              {!m.me && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                  <button onClick={() => toggleSpeak(m.text)} style={{ padding: '5px 10px', borderRadius: 8, background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700 }}>🔊 Ascolta</button>
+                  {(m.sources || []).map((s, i) => (
+                    <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>↗ {s.title.slice(0, 32)}</a>
+                  ))}
+                </div>
+              )}
+              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: 'right' }}>{m.time}</div>
+            </div>
+          ))}
+          {busy && <div style={{ color: accent, fontSize: 12 }}>● ● ● Omni sta elaborando la risposta...</div>}
+        </div>
+      </div>
+
+      {/* ================= SUGGERIMENTI ================= */}
+      <div style={{ position: 'relative', display: 'flex', gap: 8, overflowX: 'auto', padding: '6px 14px', background: 'rgba(3,14,25,.7)' }}>
+        {[
+          ['📰 Notizie TG di oggi', 'Quali sono le ultime notizie principali in Italia oggi?'],
+          ['🚗 Macchina volante Tesla', 'Parlami dei progetti e brevetti della macchina volante Tesla'],
+          ['🥣 Cereali economici', 'Quali cereali costano meno per la colazione?'],
+          ['🔬 Fusione Nucleare', 'Spiegami in modo semplice come funziona la fusione nucleare']
+        ].map(([lbl, query]) => (
+          <button key={lbl} onClick={() => send(query)} style={{ whiteSpace: 'nowrap', padding: '5px 12px', borderRadius: 999, border: '1px solid #155e75', fontSize: 12, color: '#bae6fd' }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {/* ================= INPUT FOOTER ================= */}
+      <footer style={{ position: 'relative', display: 'flex', gap: 8, padding: 12, background: 'rgba(3,14,25,.95)', borderTop: '1px solid rgba(34,211,238,.3)' }}>
+        <button
+          onClick={toggleDictation}
+          style={{ width: 44, height: 44, borderRadius: 14, border: '1px solid ' + accent, background: dictating ? '#e11d48' : '#06202f', color: dictating ? '#fff' : accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {dictating ? <MicOff size={20} /> : <Mic size={20} />}
+        </button>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder={dictating ? 'In ascolto dal microfono...' : 'Chiedi qualunque cosa ad Omni...'}
+          style={{ flex: 1, padding: '0 16px', height: 44, borderRadius: 14, border: '1px solid #155e75', background: '#06202f', color: '#fff', fontSize: 14, outline: 'none' }}
+        />
+        <button
+          onClick={() => send()}
+          disabled={busy || !input.trim()}
+          style={{ width: 44, height: 44, borderRadius: 14, background: accent, color: '#00222b', opacity: busy || !input.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Send size={20} />
+        </button>
+      </footer>
+
+      {/* ================= J.A.R.V.I.S. MODAL ================= */}
+      {hud && (
+        <Hud
+          onClose={() => setHud(false)}
+          tele={tele}
+          coords={null}
+          count={msgs.length}
+          last={msgs.filter(m => !m.me).pop()?.text}
+          speaking={speaking}
+          dictating={dictating}
+          onTalk={toggleDictation}
+        />
+      )}
+    </div>
+  );
+}
