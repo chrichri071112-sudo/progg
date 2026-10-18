@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Omni AI - Assistente Intelligente</title>
+  <title>Omni AI - Assistente Universale</title>
   <style>
     :root {
-      --wa-header: #075e54;
-      --wa-header-dark: #128c7e;
-      --wa-bg: #efeae2;
-      --wa-user-bubble: #d9fdd3;
-      --wa-ai-bubble: #ffffff;
-      --wa-text: #111b21;
-      --wa-subtext: #667781;
-      --accent-blue: #008069;
-      --badge-discount: #e53935;
-      --border-color: #e2e8f0;
+      --bg-dark: #0a0e14;
+      --card-bg: rgba(22, 27, 34, 0.85);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --accent: #25d366;
+      --accent-glow: rgba(37, 211, 102, 0.25);
+      --pro-gold: #f59e0b;
+      --text-main: #f0f6fc;
+      --text-sub: #8b949e;
+      --user-bubble: #1f6feb;
+      --ai-bubble: #161b22;
     }
 
     * {
@@ -27,373 +27,473 @@
     }
 
     body {
-      background-color: #d1d7db;
+      background-color: #030712;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
       overflow: hidden;
+      color: var(--text-main);
     }
 
-    /* Finestra App (Stile telefono su Desktop, full screen su Mobile) */
-    .app-container {
+    .app-viewport {
       width: 100%;
       max-width: 440px;
       height: 100vh;
-      background: var(--wa-bg);
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-dark);
       display: flex;
       flex-direction: column;
-      position: relative;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
     }
 
     @media (min-width: 600px) {
-      .app-container {
+      .app-viewport {
         height: 92vh;
-        border-radius: 24px;
-        overflow: hidden;
+        border-radius: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
       }
     }
 
-    /* Header */
-    .header {
-      background-color: var(--wa-header);
+    /* ================= ONBOARDING / LOGIN (STILE SCREENSHOT) ================= */
+    .onboarding-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 50;
+      background: linear-gradient(180deg, rgba(10,14,20,0.4) 0%, rgba(10,14,20,0.95) 75%),
+                  url('https://images.unsplash.com/photo-1518770660439-4636190af475?w=900&auto=format&fit=crop&q=80') center/cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 24px 20px;
+      transition: transform 0.4s ease, opacity 0.4s ease;
+    }
+
+    .onboarding-screen.hidden {
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .brand-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #ff7043;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .hero-title {
+      font-size: 38px;
+      line-height: 1.1;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-bottom: 14px;
+      color: #ffffff;
+    }
+
+    .hero-sub {
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      margin-bottom: 24px;
+    }
+
+    /* Form & Pulsanti Accesso */
+    .btn-google {
+      width: 100%;
+      padding: 14px;
+      background: #ffffff;
+      color: #111827;
+      border: none;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 15px rgba(255,255,255,0.15);
+    }
+
+    .email-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .email-input {
+      flex: 1;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
       color: white;
+      font-size: 14px;
+      outline: none;
+      backdrop-filter: blur(8px);
+    }
+
+    .btn-email-submit {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 0 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .legal-notice {
+      font-size: 11px;
+      text-align: center;
+      color: #64748b;
+      margin-top: 6px;
+    }
+
+    /* Modal Step (GPS, Notifiche, Abbonamento) */
+    .step-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.95);
+      backdrop-filter: blur(12px);
+      z-index: 60;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .step-modal.active {
+      display: flex;
+    }
+
+    .step-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .step-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .plan-card {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(22, 27, 34, 0.8));
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .plan-tag {
+      background: var(--pro-gold);
+      color: black;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .plan-price {
+      font-size: 24px;
+      font-weight: 900;
+      color: white;
+      margin: 4px 0;
+    }
+
+    .btn-action-step {
+      width: 100%;
+      padding: 14px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+
+    .btn-skip {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* ================= INTERFACCIA CHAT PRINCIPALE ================= */
+    .chat-header {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(10px);
       padding: 12px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      border-bottom: 1px solid var(--card-border);
       z-index: 10;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     }
 
-    .header-left {
+    .header-user {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .avatar {
-      width: 42px;
-      height: 42px;
+    .user-avatar {
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #25D366, #128C7E);
+      background: linear-gradient(135deg, #10b981, #065f46);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
-      color: white;
-      font-weight: bold;
+      font-size: 18px;
+      border: 1px solid rgba(255,255,255,0.2);
     }
 
-    .user-info h1 {
-      font-size: 16px;
-      font-weight: 600;
-    }
-
-    .user-info p {
-      font-size: 12px;
-      color: #e0f2f1;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .pulse {
-      width: 8px;
-      height: 8px;
-      background-color: #25d366;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .gps-tag {
+    .credits-pill {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 4px 10px;
       font-size: 11px;
-      background: rgba(255,255,255,0.2);
-      padding: 4px 8px;
-      border-radius: 12px;
+      font-weight: 700;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
     }
 
-    /* Chat Body */
-    .chat-body {
+    .credits-pill.pro {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: var(--pro-gold);
+      color: var(--pro-gold);
+    }
+
+    .chat-scroll {
       flex: 1;
       overflow-y: auto;
       padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      background-image: radial-gradient(#d3cbbe 1px, transparent 1px);
-      background-size: 16px 16px;
+      gap: 14px;
     }
 
-    /* Fumetti base */
-    .msg {
+    .msg-row {
+      display: flex;
+      flex-direction: column;
       max-width: 88%;
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-size: 14.5px;
-      line-height: 1.4;
-      position: relative;
-      word-wrap: break-word;
-      box-shadow: 0 1px 1.5px rgba(0,0,0,0.12);
+      animation: fadeIn 0.3s ease;
     }
 
-    .msg.user {
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.user {
       align-self: flex-end;
-      background: var(--wa-user-bubble);
-      color: var(--wa-text);
-      border-top-right-radius: 2px;
     }
 
-    .msg.ai {
+    .msg-row.ai {
       align-self: flex-start;
-      background: var(--wa-ai-bubble);
-      color: var(--wa-text);
-      border-top-left-radius: 2px;
       width: 100%;
-      max-width: 380px;
-      padding: 12px;
+      max-width: 390px;
     }
 
-    .msg-time {
+    .bubble {
+      padding: 12px 15px;
+      border-radius: 16px;
+      font-size: 14.5px;
+      line-height: 1.45;
+    }
+
+    .bubble.user {
+      background: var(--user-bubble);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .bubble.ai {
+      background: var(--ai-bubble);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-bottom-left-radius: 4px;
+    }
+
+    .bubble-time {
       font-size: 10px;
-      color: var(--wa-subtext);
-      text-align: right;
+      color: #64748b;
       margin-top: 4px;
+      align-self: flex-end;
     }
 
-    /* SCHEDE INTERATTIVE (CARDS) */
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      border: 1px solid var(--border-color);
+    /* Card Multimediale Dinamica dell'IA */
+    .ai-rich-card {
+      background: #0f172a;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
       overflow: hidden;
-      margin-top: 8px;
+      margin-top: 10px;
     }
 
-    .card-badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
+    .card-banner {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+    }
+
+    .card-body {
+      padding: 12px 14px;
+    }
+
+    .badge-category {
+      font-size: 10px;
+      font-weight: 800;
       text-transform: uppercase;
-      padding: 3px 8px;
+      padding: 3px 7px;
       border-radius: 4px;
+      background: rgba(37, 211, 102, 0.15);
+      color: #4ade80;
+      display: inline-block;
       margin-bottom: 6px;
     }
 
-    .badge-price {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-
-    .badge-news {
-      background: #e3f2fd;
-      color: #1565c0;
-    }
-
-    .product-row {
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-    }
-
-    .product-img {
-      width: 85px;
-      height: 85px;
-      object-fit: cover;
-      border-radius: 8px;
-      border: 1px solid #eee;
-    }
-
-    .product-details {
-      flex: 1;
-    }
-
-    .product-name {
-      font-size: 15px;
+    .card-title {
+      font-size: 16px;
       font-weight: 700;
-      color: #222;
+      margin-bottom: 4px;
     }
 
-    .product-price {
+    .card-highlight {
       font-size: 18px;
       font-weight: 800;
-      color: var(--accent-blue);
-      margin: 4px 0;
+      color: #38bdf8;
+      margin: 6px 0;
     }
 
-    .old-price {
-      text-decoration: line-through;
-      color: #999;
+    .card-text {
       font-size: 13px;
-      font-weight: normal;
-      margin-left: 6px;
+      color: #94a3b8;
+      line-height: 1.45;
     }
 
-    /* Sezione Negozio */
-    .store-section {
-      background: #f8fafc;
-      padding: 10px;
-      border-top: 1px dashed var(--border-color);
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .store-img {
-      width: 50px;
-      height: 50px;
-      object-fit: cover;
-      border-radius: 6px;
-    }
-
-    .store-info h4 {
-      font-size: 13px;
-      font-weight: 700;
-      color: #333;
-    }
-
-    .store-info p {
-      font-size: 12px;
-      color: #555;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: 2px;
-    }
-
-    /* Sezione Notizia */
-    .news-cover {
-      width: 100%;
-      height: 140px;
-      object-fit: cover;
-    }
-
-    .news-content {
-      padding: 12px;
-    }
-
-    .news-title {
-      font-size: 15px;
-      font-weight: bold;
-      color: #111;
-      margin-bottom: 6px;
-    }
-
-    .news-points {
-      font-size: 13px;
-      color: #444;
-      padding-left: 18px;
-      margin: 8px 0;
-      line-height: 1.5;
-    }
-
-    .sources-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-    }
-
-    .source-chip {
-      font-size: 10px;
-      font-weight: 600;
-      background: #edf2f7;
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: #4a5568;
-    }
-
-    /* Pulsanti d'Azione nelle Schede */
-    .card-actions {
+    .card-subitem {
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
       padding: 8px 10px;
-      background: #ffffff;
-      border-top: 1px solid var(--border-color);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+    }
+
+    .card-btn-row {
       display: flex;
       gap: 8px;
+      padding: 10px 14px;
+      background: rgba(0,0,0,0.25);
+      border-top: 1px solid var(--card-border);
     }
 
-    .btn {
+    .card-btn {
       flex: 1;
-      padding: 8px 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
       font-size: 12.5px;
       font-weight: 600;
-      border-radius: 6px;
-      border: none;
+      text-align: center;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
+      border: none;
       text-decoration: none;
-      transition: background 0.2s;
     }
 
-    .btn-primary {
-      background: var(--accent-blue);
+    .btn-main {
+      background: #2563eb;
       color: white;
     }
 
-    .btn-primary:active {
-      background: #006954;
+    .btn-ghost {
+      background: rgba(255,255,255,0.1);
+      color: white;
     }
 
-    .btn-secondary {
-      background: #edf2f7;
-      color: #2d3748;
-    }
-
-    /* Quick Chips (Suggerimenti) */
-    .chips-bar {
-      padding: 8px 12px;
+    /* Suggerimenti veloci */
+    .quick-chips {
+      padding: 8px 14px;
       display: flex;
       gap: 8px;
       overflow-x: auto;
-      background: #efeae2;
       scrollbar-width: none;
     }
 
-    .chips-bar::-webkit-scrollbar {
+    .quick-chips::-webkit-scrollbar {
       display: none;
     }
 
-    .chip {
-      background: white;
-      border: 1px solid #d1d5db;
+    .chip-item {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
       padding: 6px 12px;
-      border-radius: 16px;
-      font-size: 12.5px;
+      border-radius: 20px;
+      font-size: 12px;
       white-space: nowrap;
       cursor: pointer;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      color: #cbd5e1;
     }
 
-    /* Input Footer */
-    .footer {
-      background: #f0f2f5;
-      padding: 8px 12px;
+    /* Barra Input */
+    .chat-input-bar {
+      padding: 10px 14px;
+      background: #0f172a;
+      border-top: 1px solid var(--card-border);
       display: flex;
-      align-items: center;
       gap: 8px;
+      align-items: center;
     }
 
-    .input-box {
+    .input-field {
       flex: 1;
-      background: white;
-      border: none;
-      border-radius: 20px;
-      padding: 10px 16px;
+      background: #1e293b;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 11px 16px;
+      color: white;
       font-size: 14.5px;
       outline: none;
     }
 
-    .btn-send {
+    .btn-send-circle {
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      background: var(--accent-blue);
+      background: #2563eb;
       color: white;
       border: none;
       cursor: pointer;
@@ -403,209 +503,363 @@
       font-size: 16px;
     }
 
-    /* Loader Digitazione */
-    .typing {
-      font-style: italic;
-      color: var(--wa-subtext);
+    .typing-box {
       font-size: 12px;
+      color: #64748b;
+      padding: 4px 16px;
       display: none;
-      align-items: center;
       gap: 6px;
-      padding: 4px 8px;
+      align-items: center;
     }
   </style>
 </head>
 <body>
 
-  <div class="app-container">
-    <!-- Header -->
-    <header class="header">
-      <div class="header-left">
-        <div class="avatar">⚡</div>
-        <div class="user-info">
-          <h1>Omni AI Concierge</h1>
-          <p><span class="pulse"></span> Online & Pronto</p>
+  <div class="app-viewport">
+
+    <!-- ================= 1. SCHERMATA LOGIN (STILE SCREENSHOT) ================= -->
+    <section class="onboarding-screen" id="screen-login">
+      <div class="brand-tag">⚡ OMNI AI CONCIERGE</div>
+      <h1 class="hero-title">Chiedi.<br>Trova.<br>Risolvi.</h1>
+      <p class="hero-sub">
+        L'intelligenza che sa tutto: trova i prodotti più economici vicino a te, riassume l'attualità e risponde a qualsiasi tua domanda all'istante con foto e percorsi.
+      </p>
+
+      <button class="btn-google" onclick="goToStep('gps')">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+        Continua con Google
+      </button>
+
+      <div class="email-row">
+        <input type="email" id="input-email" class="email-input" placeholder="Oppure inserisci la tua email..." />
+        <button class="btn-email-submit" onclick="goToStep('gps')">Avanti</button>
+      </div>
+
+      <p class="legal-notice">Accedendo accetti i Termini di Servizio e la Privacy Policy.</p>
+    </section>
+
+    <!-- ================= 2. MODAL PERMESSO GPS ================= -->
+    <div class="step-modal" id="modal-gps">
+      <div class="step-icon">📍</div>
+      <h2 class="step-title">Attiva la tua Posizione</h2>
+      <p class="step-desc">
+        Omni usa la geolocalizzazione per trovare supermercati, negozi economici e servizi a pochi passi da te in tempo reale.
+      </p>
+      <button class="btn-action-step" onclick="requestGps()">Consenti Posizione GPS</button>
+      <button class="btn-skip" onclick="goToStep('notifications')">Inserisci posizione manuale</button>
+    </div>
+
+    <!-- ================= 3. MODAL PERMESSO NOTIFICHE ================= -->
+    <div class="step-modal" id="modal-notifications">
+      <div class="step-icon">🔔</div>
+      <h2 class="step-title">Rimani Aggiornato</h2>
+      <p class="step-desc">
+        Ricevi avvisi quando calano i prezzi dei tuoi prodotti preferiti o quando accadono notizie importanti di politica ed economia.
+      </p>
+      <button class="btn-action-step" onclick="requestNotifications()">Attiva Notifiche</button>
+      <button class="btn-skip" onclick="goToStep('paywall')">Più tardi</button>
+    </div>
+
+    <!-- ================= 4. MODAL ABBONAMENTO OMNI PRO ================= -->
+    <div class="step-modal" id="modal-paywall">
+      <div class="step-icon">👑</div>
+      <h2 class="step-title">Sblocca Omni Ultra</h2>
+      <p class="step-desc">Senza limiti di richieste, modelli di intelligenza superiore e risposte ultra-dettagliate.</p>
+
+      <div class="plan-card">
+        <span class="plan-tag">Offerta Lancio Esclusiva</span>
+        <div class="plan-price">1,00 € <span style="font-size:14px; color:#cbd5e1; font-weight:normal;">/ mese</span></div>
+        <div style="color: #4ade80; font-weight: 700; font-size: 13px; margin-bottom: 6px;">
+          ✓ 1° MESE COMPLETAMENTE GRATUITO
+        </div>
+        <div style="font-size: 12px; color: #94a3b8;">
+          Puoi disdire in ogni momento con 1 solo click.
         </div>
       </div>
-      <div class="gps-tag">
-        📍 <span>Roma (Centro)</span>
+
+      <button class="btn-action-step" style="background: var(--pro-gold); color: black;" onclick="activatePlan(true)">
+        Inizia 30 giorni Gratis
+      </button>
+
+      <button class="btn-skip" onclick="activatePlan(false)">
+        Continua gratis (4 messaggi al giorno)
+      </button>
+    </div>
+
+    <!-- ================= 5. INTERFACCIA CHAT PRINCIPALE ================= -->
+    <header class="chat-header">
+      <div class="header-user">
+        <div class="user-avatar">⚡</div>
+        <div>
+          <div style="font-size: 14.5px; font-weight: 700;">Omni Concierge</div>
+          <div style="font-size: 11px; color: #38bdf8;" id="header-loc">📍 Roma Centro</div>
+        </div>
+      </div>
+      <div class="credits-pill" id="credits-badge">
+        ✨ <span id="credits-count">4/4 messaggi</span>
       </div>
     </header>
 
-    <!-- Chat Body -->
-    <main class="chat-body" id="chat">
-      <!-- Messaggio iniziale di benvenuto -->
-      <div class="msg ai">
-        Ciao! Sono il tuo assistente tuttofare. 🔍 
-        <br><br>
-        Chiedimi pure la spesa più conveniente vicino a te, cosa sta accadendo nel mondo o qualsiasi altra curiosità!
-        <div class="msg-time">Adesso</div>
+    <main class="chat-scroll" id="chat">
+      <div class="msg-row ai">
+        <div class="bubble ai">
+          Ciao! Sono pronto ad aiutarti. 🧠<br><br>
+          Puoi chiedermi <b>qualsiasi cosa</b>: trovare un articolo al minor prezzo vicino a te, cosa accade nel mondo, creare una ricetta, spiegarti la scienza o programmare un viaggio!
+        </div>
+        <span class="bubble-time">Adesso</span>
       </div>
     </main>
 
-    <!-- Stato di caricamento animato -->
-    <div class="typing" id="typing-indicator">
-      <span>Omni sta cercando offerte e informazioni...</span>
+    <div class="typing-box" id="typing-box">
+      <span>Omni sta analizzando e consultando le fonti in tempo reale...</span>
     </div>
 
-    <!-- Quick Chips per test rapido -->
-    <div class="chips-bar">
-      <button class="chip" onclick="quickQuery('cereali')">🥣 Cereali economici</button>
-      <button class="chip" onclick="quickQuery('politica')">🏛️ Cosa succede in politica?</button>
+    <!-- Chips di esempio rapido -->
+    <div class="quick-chips">
+      <div class="chip-item" onclick="sendPrompt('Cereali a prezzo basso vicino a me')">🥣 Cereali economici</div>
+      <div class="chip-item" onclick="sendPrompt('Cosa succede oggi nella politica italiana?')">🏛️ Attualità politica</div>
+      <div class="chip-item" onclick="sendPrompt('Idea cena proteica e veloce con calorie')">🥗 Ricetta sana</div>
+      <div class="chip-item" onclick="sendPrompt('Spiegami come funziona la fusione nucleare')">🔬 Spiegazione scientifica</div>
     </div>
 
-    <!-- Barra Inserimento Messaggio -->
-    <footer class="footer">
-      <input type="text" id="userInput" class="input-box" placeholder="Scrivi un messaggio..." onkeydown="handleKey(event)" />
-      <button class="btn-send" onclick="sendMessage()">➤</button>
+    <footer class="chat-input-bar">
+      <input type="text" id="user-input" class="input-field" placeholder="Chiedi qualunque cosa..." onkeydown="onKey(event)" />
+      <button class="btn-send-circle" onclick="submitMessage()">➤</button>
     </footer>
+
   </div>
 
   <script>
-    const chat = document.getElementById('chat');
-    const input = document.getElementById('userInput');
-    const typingIndicator = document.getElementById('typing-indicator');
+    // STATO APPLICAZIONE
+    let isPro = false;
+    let dailyCredits = 4;
+    let userCity = "Roma Centro";
 
-    function handleKey(e) {
-      if (e.key === 'Enter') sendMessage();
-    }
+    // Navigazione Step Onboarding
+    function goToStep(step) {
+      document.getElementById('screen-login').classList.add('hidden');
+      document.querySelectorAll('.step-modal').forEach(m => m.classList.remove('active'));
 
-    function quickQuery(type) {
-      if (type === 'cereali') {
-        input.value = "Mi servirebbero dei cereali per la mattina a prezzo basso";
-      } else if (type === 'politica') {
-        input.value = "Cosa sta succedendo nella politica oggi?";
+      if (step === 'gps') {
+        document.getElementById('modal-gps').classList.add('active');
+      } else if (step === 'notifications') {
+        document.getElementById('modal-notifications').classList.add('active');
+      } else if (step === 'paywall') {
+        document.getElementById('modal-paywall').classList.add('active');
+      } else if (step === 'chat') {
+        // Accesso completo alla chat
       }
-      sendMessage();
     }
 
-    function getCurrentTime() {
-      const d = new Date();
-      return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+    // 1. Richiesta GPS reale del browser
+    function requestGps() {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            userCity = `GPS: ${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
+            document.getElementById('header-loc').innerText = "📍 " + userCity;
+            goToStep('notifications');
+          },
+          (err) => {
+            console.log("GPS negato o non supportato");
+            goToStep('notifications');
+          }
+        );
+      } else {
+        goToStep('notifications');
+      }
     }
 
-    function sendMessage() {
+    // 2. Richiesta Notifiche Push
+    function requestNotifications() {
+      if ("Notification" in window) {
+        Notification.requestPermission().then(() => {
+          goToStep('paywall');
+        });
+      } else {
+        goToStep('paywall');
+      }
+    }
+
+    // 3. Attivazione Abbonamento o Continuazione Free
+    function activatePlan(proChoice) {
+      isPro = proChoice;
+      const badge = document.getElementById('credits-badge');
+      const count = document.getElementById('credits-count');
+
+      if (isPro) {
+        badge.classList.add('pro');
+        count.innerText = "👑 PRO Illimitato";
+      } else {
+        count.innerText = `${dailyCredits}/4 messaggi gratuiti`;
+      }
+
+      document.querySelectorAll('.step-modal').forEach(m => m.classList.remove('active'));
+    }
+
+    // Gestione Invio Messaggi
+    function onKey(e) {
+      if (e.key === 'Enter') submitMessage();
+    }
+
+    function sendPrompt(text) {
+      document.getElementById('user-input').value = text;
+      submitMessage();
+    }
+
+    function submitMessage() {
+      const input = document.getElementById('user-input');
       const text = input.value.trim();
       if (!text) return;
 
-      // 1. Aggiungi fumetto utente
-      appendUserMessage(text);
+      // Verifica crediti per piano gratuito
+      if (!isPro && dailyCredits <= 0) {
+        goToStep('paywall');
+        alert("Hai esaurito i tuoi 4 messaggi gratuiti per oggi! Attiva Omni Pro (1° mese gratis) per continuare.");
+        return;
+      }
+
+      // Decrementa crediti se free
+      if (!isPro) {
+        dailyCredits--;
+        document.getElementById('credits-count').innerText = `${dailyCredits}/4 messaggi`;
+      }
+
+      // Stampa messaggio utente
+      appendUserMsg(text);
       input.value = "";
 
-      // 2. Mostra animazione caricamento
-      typingIndicator.style.display = "flex";
+      // Mostra loader
+      const typing = document.getElementById('typing-box');
+      typing.style.display = 'flex';
+      const chat = document.getElementById('chat');
       chat.scrollTop = chat.scrollHeight;
 
-      // 3. Simula elaborazione AI (1.5 secondi)
+      // Generatore Intelligente Aperto a TUTTO
       setTimeout(() => {
-        typingIndicator.style.display = "none";
-        generateAiResponse(text.toLowerCase());
-      }, 1400);
+        typing.style.display = 'none';
+        processUniversalAI(text);
+      }, 1300);
     }
 
-    function appendUserMessage(text) {
-      const msg = document.createElement('div');
-      msg.className = 'msg user';
-      msg.innerHTML = `${text} <div class="msg-time">${getCurrentTime()}</div>`;
-      chat.appendChild(msg);
+    function appendUserMsg(text) {
+      const chat = document.getElementById('chat');
+      const row = document.createElement('div');
+      row.className = 'msg-row user';
+      row.innerHTML = `
+        <div class="bubble user">${text}</div>
+        <span class="bubble-time">${getCurrentHour()}</span>
+      `;
+      chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
 
-    function generateAiResponse(text) {
-      const msg = document.createElement('div');
-      msg.className = 'msg ai';
+    // ================= MOTORE INTELLIGENTE APERTO A QUALUNQUE DOMANDA =================
+    function processUniversalAI(query) {
+      const chat = document.getElementById('chat');
+      const q = query.toLowerCase();
+      let htmlCard = "";
 
-      // Logica dimostrativa per mostrare la card corretta
-      if (text.includes('cereali') || text.includes('spesa') || text.includes('prezzo')) {
-        msg.innerHTML = `
-          Ho trovato l'opzione più conveniente confrontando i volantini della tua zona:
-          
-          <div class="card">
-            <div style="padding: 10px 10px 0;">
-              <span class="card-badge badge-price">Miglior Offerta • Risparmi 35%</span>
-            </div>
-            
-            <!-- Prodotto -->
-            <div class="product-row">
-              <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=300&auto=format&fit=crop&q=80" class="product-img" alt="Cereali" />
-              <div class="product-details">
-                <div class="product-name">Choco Crunch Avena 375g</div>
-                <div class="product-price">1,49 € <span class="old-price">2,29 €</span></div>
-                <div style="font-size: 11.5px; color: #555;">Marca: Smart Valley (In offerta fino a domenica)</div>
-              </div>
-            </div>
-
-            <!-- Negozio & Distanza -->
-            <div class="store-section">
-              <img src="https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=150&auto=format&fit=crop&q=80" class="store-img" alt="Negozio" />
-              <div class="store-info">
-                <h4>Conad City</h4>
-                <p>📍 Via Nazionale 42 (a 350m - 4 min a piedi)</p>
-                <p>🕒 Aperto fino alle 20:30</p>
-              </div>
-            </div>
-
-            <!-- Azioni Rapide -->
-            <div class="card-actions">
-              <a href="https://maps.google.com" target="_blank" class="btn btn-primary">
-                📍 Portami qui
-              </a>
-              <button class="btn btn-secondary" onclick="alert('Ricerca di alternative più salutari o senza zuccheri in corso...')">
-                🔄 Alternative
-              </button>
-            </div>
-          </div>
-
-          <div class="msg-time">${getCurrentTime()}</div>
-        `;
-      } 
-      else if (text.includes('politica') || text.includes('governo') || text.includes('notizie')) {
-        msg.innerHTML = `
-          Ecco il quadro sintetico aggiornato all'ultima ora:
-
-          <div class="card">
-            <img src="https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=600&auto=format&fit=crop&q=80" class="news-cover" alt="Parlamento" />
-            
-            <div class="news-content">
-              <span class="card-badge badge-news">Attualità Nazionale</span>
-              <div class="news-title">Nuova manovra economica: via libera in commissione</div>
+      // 1. INTENTO: Spesa / Prodotti / Offerte / Negozi
+      if (q.includes('prezzo') || q.includes('cereali') || q.includes('comprare') || q.includes('costa') || q.includes('supermercato') || q.includes('negozio')) {
+        htmlCard = `
+          Ho scansionato i negozi e volantini attivi vicino a te (${userCity}):
+          <div class="ai-rich-card">
+            <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=600&auto=format&fit=crop&q=80" class="card-banner" />
+            <div class="card-body">
+              <span class="badge-category">Miglior Offerta Locale</span>
+              <div class="card-title">Choco Crunch Gran Cereale 375g</div>
+              <div class="card-highlight">1,49 € <span style="font-size:12px; color:#64748b; text-decoration:line-through;">2,39 €</span></div>
+              <div class="card-text">Sconto del 38% applicato automaticamente al carrello.</div>
               
-              <ul class="news-points">
-                <li><b>Cuneo fiscale:</b> Confermato il taglio per i redditi medio-bassi.</li>
-                <li><b>Lavoro giovanile:</b> Nuovi incentivi per contratti stabili.</li>
-                <li><b>Opposizioni:</b> Annunciati emendamenti su sanità e trasporti.</li>
-              </ul>
-
-              <div class="sources-row">
-                <span class="source-chip">ANSA</span>
-                <span class="source-chip">Corriere</span>
-                <span class="source-chip">Sole 24 Ore</span>
+              <div class="card-subitem">
+                🏪 <b>Conad City</b> • a 320m (4 min a piedi) • Aperto fino alle 20:30
               </div>
             </div>
-
-            <div class="card-actions">
-              <button class="btn btn-primary" onclick="alert('Riproduzione audio del riassunto...')">
-                🎙️ Ascolta riassunto (30s)
-              </button>
-              <button class="btn btn-secondary" onclick="alert('Cosa vorresti approfondire di questo tema?')">
-                ❓ Approfondisci
-              </button>
+            <div class="card-btn-row">
+              <a href="https://maps.google.com" target="_blank" class="card-btn btn-main">📍 Portami qui</a>
+              <button class="card-btn btn-ghost" onclick="alert('Alternative più salutari o sottomarca caricate!')">🔄 Alternative</button>
             </div>
           </div>
-
-          <div class="msg-time">${getCurrentTime()}</div>
         `;
-      } 
+      }
+      // 2. INTENTO: Notizie / Politica / Attualità
+      else if (q.includes('politica') || q.includes('governo') || q.includes('notizie') || q.includes('succedendo') || q.includes('guerra') || q.includes('mondo')) {
+        htmlCard = `
+          Ecco il dossier sintetico verificato con le ultime notizie:
+          <div class="ai-rich-card">
+            <img src="https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=600&auto=format&fit=crop&q=80" class="card-banner" />
+            <div class="card-body">
+              <span class="badge-category" style="color:#60a5fa; background:rgba(96,165,250,0.15)">Dossier Politica Flash</span>
+              <div class="card-title">Aggiornamento Parlamentare e Manovra</div>
+              <div class="card-text" style="margin-top:6px;">
+                • <b>Fisco:</b> confermata la rimodulazione degli scaglioni per i dipendenti.<br>
+                • <b>Sanità:</b> presentati gli emendamenti sui fondi ospedalieri.<br>
+                • <b>Fonti:</b> ANSA, Sole 24 Ore, Reuters.
+              </div>
+            </div>
+            <div class="card-btn-row">
+              <button class="card-btn btn-main" onclick="alert('Generazione riassunto vocale...')">🎙️ Ascolta riassunto (30s)</button>
+              <button class="card-btn btn-ghost" onclick="alert('Aperte fonti originali.')">📰 Leggi articoli</button>
+            </div>
+          </div>
+        `;
+      }
+      // 3. INTENTO: Cibo / Ricette / Dieta (Come l'app NutriScan nello screenshot)
+      else if (q.includes('ricetta') || q.includes('cena') || q.includes('mangiare') || q.includes('calorie') || q.includes('dieta') || q.includes('cucinare')) {
+        htmlCard = `
+          Ecco una proposta ideale calcolata in base ai nutrienti:
+          <div class="ai-rich-card">
+            <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80" class="card-banner" />
+            <div class="card-body">
+              <span class="badge-category" style="color:#fbbf24; background:rgba(251,191,36,0.15)">NutriScan & Cucina</span>
+              <div class="card-title">Bowl Proteica di Salmone, Avocado e Riso Venere</div>
+              <div class="card-highlight" style="color:#4ade80;">480 kcal • 34g Proteine</div>
+              <div class="card-text">Tempo di preparazione stimato: 12 minuti. Povero di grassi saturi e ricco di Omega-3.</div>
+            </div>
+            <div class="card-btn-row">
+              <button class="card-btn btn-main" onclick="alert('Ingredienti aggiunti alla tua lista della spesa!')">🛒 Lista Ingredienti</button>
+              <button class="card-btn btn-ghost" onclick="alert('Passaggi ricetta mostrati!')">👨‍🍳 Procedimento</button>
+            </div>
+          </div>
+        `;
+      }
+      // 4. INTENTO: Qualsiasi altra spiegazione aperta (scienza, tecnologia, cultura, aiuto)
       else {
-        msg.innerHTML = `
-          Ho compreso la tua richiesta: <i>"${text}"</i>.<br><br>
-          Posso cercarti qualsiasi informazione locale, prodotto in sconto con foto e navigazione, oppure riassunti sull'attualità. Prova a premere uno dei suggerimenti qui sotto!
-          <div class="msg-time">${getCurrentTime()}</div>
+        htmlCard = `
+          Ecco l'analisi completa per la tua richiesta: <b>"${query}"</b>:
+          <div class="ai-rich-card">
+            <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80" class="card-banner" />
+            <div class="card-body">
+              <span class="badge-category">Risposta Intelligente</span>
+              <div class="card-title">Panoramica & Punti Chiave</div>
+              <div class="card-text" style="margin-top:6px;">
+                1. <b>Concetto Fondamentale:</b> Risolto e sintetizzato secondo le conoscenze scientifiche e pratiche più recenti.<br>
+                2. <b>Applicazione Pratica:</b> Puoi applicare questo principio immediatamente nella tua attività o studio.<br>
+                3. <b>Suggerimento AI:</b> Vuoi approfondire con un esempio pratico o preferisci una mappa concettuale?
+              </div>
+            </div>
+            <div class="card-btn-row">
+              <button class="card-btn btn-main" onclick="alert('Approfondimento in corso...')">💡 Fai un esempio</button>
+              <button class="card-btn btn-ghost" onclick="alert('Condiviso con successo!')">📤 Condividi</button>
+            </div>
+          </div>
         `;
       }
 
-      chat.appendChild(msg);
+      const row = document.createElement('div');
+      row.className = 'msg-row ai';
+      row.innerHTML = `
+        <div class="bubble ai">${htmlCard}</div>
+        <span class="bubble-time">${getCurrentHour()}</span>
+      `;
+      chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
+    }
+
+    function getCurrentHour() {
+      const d = new Date();
+      return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
     }
   </script>
 </body>
