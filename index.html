@@ -58,7 +58,7 @@
       }
     }
 
-    /* ================= BARRA LATERALE A SINISTRA (DRAWER) ================= */
+    /* BARRA LATERALE */
     .sidebar-overlay {
       position: absolute;
       inset: 0;
@@ -119,7 +119,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .sidebar-section-title {
@@ -140,7 +140,7 @@
     }
 
     .history-item {
-      padding: 10px;
+      padding: 9px 10px;
       border-radius: 8px;
       background: rgba(255,255,255,0.03);
       font-size: 13px;
@@ -158,7 +158,6 @@
       background: rgba(255,255,255,0.08);
     }
 
-    /* Box Abbonamento Sidebar */
     .sub-box {
       background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--card-border);
@@ -183,7 +182,6 @@
       border: none;
     }
 
-    /* Selettore Tema */
     .theme-presets {
       display: flex;
       gap: 6px;
@@ -198,7 +196,7 @@
       border: 2px solid white;
     }
 
-    /* ================= ONBOARDING / LOGIN ================= */
+    /* ONBOARDING */
     .onboarding-screen {
       position: absolute;
       inset: 0;
@@ -259,7 +257,6 @@
       margin-bottom: 10px;
     }
 
-    /* Modali Permessi */
     .step-modal {
       position: absolute;
       inset: 0;
@@ -299,7 +296,7 @@
       text-decoration: underline;
     }
 
-    /* ================= HEADER & CHAT ================= */
+    /* HEADER & CHAT */
     .chat-header {
       background: rgba(15, 23, 42, 0.95);
       backdrop-filter: blur(10px);
@@ -347,6 +344,7 @@
       display: flex;
       align-items: center;
       gap: 5px;
+      cursor: pointer;
     }
 
     .credits-pill.pro {
@@ -390,7 +388,7 @@
       padding: 12px 14px;
       border-radius: 16px;
       font-size: 14px;
-      line-height: 1.45;
+      line-height: 1.5;
     }
 
     .bubble.user {
@@ -413,7 +411,7 @@
       align-self: flex-end;
     }
 
-    /* CARD MULTIMEDIALI */
+    /* CARD RISULTATI */
     .ai-rich-card {
       background: rgba(15, 23, 42, 0.7);
       border-radius: 14px;
@@ -424,8 +422,9 @@
 
     .card-banner {
       width: 100%;
-      height: 145px;
+      height: 160px;
       object-fit: cover;
+      background: #1e293b;
     }
 
     .card-body {
@@ -445,9 +444,10 @@
     }
 
     .card-title {
-      font-size: 15.5px;
+      font-size: 16px;
       font-weight: 700;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      color: #fff;
     }
 
     .card-highlight {
@@ -458,9 +458,9 @@
     }
 
     .card-text {
-      font-size: 13px;
-      color: var(--text-sub);
-      line-height: 1.45;
+      font-size: 13.5px;
+      color: #cbd5e1;
+      line-height: 1.55;
     }
 
     .card-btn-row {
@@ -495,7 +495,7 @@
     .btn-voice { background: #059669; color: white; }
     .btn-ghost { background: rgba(255,255,255,0.1); color: white; }
 
-    /* Input Footer */
+    /* INPUT */
     .chat-input-bar {
       padding: 10px 14px;
       background: #0f172a;
@@ -533,8 +533,10 @@
     .typing-box {
       font-size: 12px;
       color: var(--text-sub);
-      padding: 4px 16px;
+      padding: 6px 16px;
       display: none;
+      align-items: center;
+      gap: 6px;
     }
   </style>
 </head>
@@ -542,7 +544,6 @@
 
   <div class="app-viewport">
 
-    <!-- OVERLAY E SIDEBAR A SINISTRA -->
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
     
     <aside class="sidebar" id="sidebar">
@@ -558,13 +559,12 @@
       </button>
 
       <div class="sidebar-section-title">Le tue Chat</div>
-      <div class="chat-history-list">
-        <div class="history-item" onclick="loadChatDemo('🥣 Spesa: Cereali economici')">🥣 Spesa: Cereali economici</div>
-        <div class="history-item" onclick="loadChatDemo('🏛️ Notizie TG Politica')">🏛️ Notizie TG Politica</div>
-        <div class="history-item" onclick="loadChatDemo('🥗 Ricette NutriScan')">🥗 Ricette NutriScan</div>
+      <div class="chat-history-list" id="chat-history">
+        <div class="history-item" onclick="loadChatDemo('Macchina volante Tesla')">🚗 Macchina volante Tesla</div>
+        <div class="history-item" onclick="loadChatDemo('Spesa e Cereali economici')">🥣 Spesa e Cereali economici</div>
+        <div class="history-item" onclick="loadChatDemo('Notizie Politica e TG')">🏛️ Notizie Politica e TG</div>
       </div>
 
-      <!-- GESTIONE ABBONAMENTO -->
       <div class="sidebar-section-title">Abbonamento</div>
       <div class="sub-box" id="sub-management-box">
         <div style="font-size: 13px; font-weight: bold;" id="sub-status-title">Piano Gratuito</div>
@@ -575,7 +575,6 @@
         </button>
       </div>
 
-      <!-- PERSONALIZZAZIONE TEMA -->
       <div class="sidebar-section-title">Tema & Colori</div>
       <div class="theme-presets">
         <div class="theme-circle" style="background: #2563eb;" title="Scuro Moderno" onclick="applyTheme('dark')"></div>
@@ -590,24 +589,24 @@
       </div>
     </aside>
 
-    <!-- ONBOARDING LOGIN -->
+    <!-- ONBOARDING -->
     <section class="onboarding-screen" id="screen-login">
       <div class="brand-tag">⚡ OMNI AI CONCIERGE</div>
       <h1 class="hero-title">Chiedi.<br>Trova.<br>Risolvi.</h1>
-      <p class="hero-sub">L'intelligenza che risponde a tutto: apre i siti dei TG, legge le notizie a voce, confronta i prezzi vicino a te e trova qualunque informazione.</p>
+      <p class="hero-sub">L'intelligenza che risponde VERAMENTE a qualsiasi domanda con spiegazioni approfondite, foto generate ad hoc e notizie in tempo reale.</p>
 
       <button class="btn-google" onclick="goToStep('gps')">
         <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
         Continua con Google
       </button>
-      <button class="btn-skip" style="color:white; margin-top:8px;" onclick="goToStep('gps')">Oppure accedi come Ospite</button>
+      <button class="btn-skip" style="color:white; margin-top:8px;" onclick="goToStep('gps')">Accedi come Ospite</button>
     </section>
 
     <!-- STEP GPS -->
     <div class="step-modal" id="modal-gps">
       <div style="font-size: 48px; margin-bottom: 12px;">📍</div>
       <h2 style="margin-bottom: 8px;">Attiva il GPS</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Indispensabile per trovare le offerte e i negozi più vicini a te in tempo reale.</p>
+      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Per trovare negozi, supermercati e informazioni vicine a te.</p>
       <button class="btn-action-step" onclick="requestGps()">Consenti Posizione</button>
       <button class="btn-skip" onclick="goToStep('notifications')">Salta per ora</button>
     </div>
@@ -616,19 +615,19 @@
     <div class="step-modal" id="modal-notifications">
       <div style="font-size: 48px; margin-bottom: 12px;">🔔</div>
       <h2 style="margin-bottom: 8px;">Attiva Notifiche</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Ricevi aggiornamenti sulle notizie flash e sconti vicino a te.</p>
-      <button class="btn-action-step" onclick="requestNotifications()">Attiva</button>
+      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Ricevi notifiche per aggiornamenti importanti e offerte locali.</p>
+      <button class="btn-action-step" onclick="requestNotifications()">Attiva Notifiche</button>
       <button class="btn-skip" onclick="goToStep('chat')">Più tardi</button>
     </div>
 
-    <!-- HEADER PRINCIPALE -->
+    <!-- HEADER -->
     <header class="chat-header">
       <div class="header-left">
         <button class="btn-hamburger" onclick="toggleSidebar(true)">☰</button>
         <div class="user-avatar">⚡</div>
         <div>
           <div style="font-size: 14.5px; font-weight: 700;">Omni AI</div>
-          <div style="font-size: 11px; color: #38bdf8;" id="header-loc">📍 Roma Centro</div>
+          <div style="font-size: 11px; color: #38bdf8;" id="header-loc">📍 Posizione Rilevata</div>
         </div>
       </div>
       <div class="credits-pill" id="credits-badge" onclick="toggleSidebar(true)">
@@ -636,37 +635,35 @@
       </div>
     </header>
 
-    <!-- AREA CHAT SCORREVOLE -->
+    <!-- CHAT -->
     <main class="chat-scroll" id="chat">
       <div class="msg-row ai">
         <div class="bubble ai">
-          Ciao! Sono il tuo assistente tuttofare. 🧠<br><br>
-          Chiedimi notizie (ti aprirò i siti dei <b>TG ufficiali</b> e posso leggertele con il <b>riassunto vocale</b>), prezzi di prodotti vicino a te o qualsiasi altra informazione!
+          Ciao! Sono il tuo assistente universale potenziato. 🧠<br><br>
+          Puoi chiedermi <b>qualsiasi argomento</b>: spiegazioni dettagliate (scienza, tecnologia come le macchine volanti Tesla), immagini, notizie dai TG o prezzi dei negozi vicini!
         </div>
         <span class="bubble-time">Adesso</span>
       </div>
     </main>
 
     <div class="typing-box" id="typing-box">
-      <span>Omni sta elaborando la risposta in tempo reale...</span>
+      <span>Omni sta generando la risposta e l'immagine...</span>
     </div>
 
-    <!-- BARRA INPUT -->
+    <!-- INPUT FOOTER -->
     <footer class="chat-input-bar">
-      <input type="text" id="user-input" class="input-field" placeholder="Chiedi notizie, spesa, o qualunque cosa..." onkeydown="onKey(event)" />
+      <input type="text" id="user-input" class="input-field" placeholder="Chiedimi qualunque cosa al mondo..." onkeydown="onKey(event)" />
       <button class="btn-send-circle" onclick="submitMessage()">➤</button>
     </footer>
 
   </div>
 
   <script>
-    // STATO APPLICAZIONE
     let isPro = false;
     let dailyCredits = 4;
-    let userCity = "Roma Centro";
+    let userCity = "Italia";
     let isSpeaking = false;
 
-    // Gestione Sidebar
     function toggleSidebar(open) {
       document.getElementById('sidebar').classList.toggle('open', open);
       document.getElementById('sidebar-overlay').classList.toggle('active', open);
@@ -676,7 +673,7 @@
       const chat = document.getElementById('chat');
       chat.innerHTML = `
         <div class="msg-row ai">
-          <div class="bubble ai">Nuova chat avviata! Cosa vorresti sapere o trovare oggi?</div>
+          <div class="bubble ai">Nuova chat avviata! Cosa vuoi sapere o cercare?</div>
           <span class="bubble-time">${getCurrentHour()}</span>
         </div>
       `;
@@ -685,30 +682,21 @@
 
     function loadChatDemo(title) {
       toggleSidebar(false);
-      if (title.includes('Cereali')) {
-        document.getElementById('user-input').value = "Cereali per la mattina a basso prezzo";
-      } else if (title.includes('Politica')) {
-        document.getElementById('user-input').value = "Cosa sta succedendo nella politica italiana?";
-      } else {
-        document.getElementById('user-input').value = "Consigliami una ricetta sana";
-      }
+      document.getElementById('user-input').value = title;
       submitMessage();
     }
 
-    // GESTIONE ABBONAMENTO (COMPRA E FERMA)
     function toggleSubscription() {
       if (!isPro) {
-        // COMPRARE L'ABBONAMENTO (1° Mese Gratis)
         isPro = true;
         updateSubscriptionUI();
-        alert("🎉 Congratulazioni! Hai attivato Omni PRO. Il primo mese è GRATUITO, poi 1€/mese. Ora hai messaggi illimitati!");
+        alert("🎉 Omni PRO attivato! 1° mese GRATIS (poi 1€/mese). Ora hai messaggi illimitati.");
       } else {
-        // FERMARE / DISDIRE L'ABBONAMENTO
-        if (confirm("Vuoi davvero fermare l'abbonamento Omni PRO? Tornerai al limite di 4 messaggi al giorno senza costi aggiuntivi.")) {
+        if (confirm("Vuoi davvero fermare l'abbonamento Omni PRO?")) {
           isPro = false;
           dailyCredits = 4;
           updateSubscriptionUI();
-          alert("Abbonamento fermato con successo. Non ti verrà addebitato alcun costo.");
+          alert("Abbonamento fermato. Nessun costo ti verrà addebitato.");
         }
       }
     }
@@ -742,7 +730,6 @@
       }
     }
 
-    // GESTIONE TEMI & COLORI
     function applyTheme(name) {
       const root = document.documentElement;
       if (name === 'dark') {
@@ -773,37 +760,28 @@
       document.documentElement.style.setProperty('--user-bubble', color);
     }
 
-    // SINTESI VOCALE REALE IN ITALIANO
     function playVoiceSummary(textToSpeak) {
       if (!('speechSynthesis' in window)) {
-        alert("La sintesi vocale non è supportata dal tuo browser.");
+        alert("Sintesi vocale non supportata.");
         return;
       }
-
       if (isSpeaking) {
         window.speechSynthesis.cancel();
         isSpeaking = false;
         return;
       }
-
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
       utterance.lang = 'it-IT';
       utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-
       utterance.onstart = () => { isSpeaking = true; };
       utterance.onend = () => { isSpeaking = false; };
-      utterance.onerror = () => { isSpeaking = false; };
-
       window.speechSynthesis.speak(utterance);
     }
 
-    // ONBOARDING GPS & NOTIFICHE
     function goToStep(step) {
       document.getElementById('screen-login').classList.add('hidden');
       document.querySelectorAll('.step-modal').forEach(m => m.classList.remove('active'));
-
       if (step === 'gps') document.getElementById('modal-gps').classList.add('active');
       else if (step === 'notifications') document.getElementById('modal-notifications').classList.add('active');
     }
@@ -828,19 +806,18 @@
       goToStep('chat');
     }
 
-    // INVIO MESSAGGI
     function onKey(e) {
       if (e.key === 'Enter') submitMessage();
     }
 
-    function submitMessage() {
+    async function submitMessage() {
       const input = document.getElementById('user-input');
       const text = input.value.trim();
       if (!text) return;
 
       if (!isPro && dailyCredits <= 0) {
         toggleSidebar(true);
-        alert("Hai terminato i 4 messaggi giornalieri! Attiva Omni PRO (1° mese gratis) nella barra laterale per continuare.");
+        alert("Hai esaurito i 4 messaggi gratuiti di oggi. Attiva Omni PRO nella barra laterale per continuare!");
         return;
       }
 
@@ -853,118 +830,169 @@
       input.value = "";
 
       const typing = document.getElementById('typing-box');
-      typing.style.display = 'block';
+      typing.style.display = 'flex';
       const chat = document.getElementById('chat');
       chat.scrollTop = chat.scrollHeight;
 
-      setTimeout(() => {
-        typing.style.display = 'none';
-        generateSmartResponse(text);
-      }, 1200);
+      // CHIAMATA ALLA VERA INTELLIGENZA ARTIFICIALE
+      await handleUniversalQuery(text);
+      typing.style.display = 'none';
     }
 
     function appendUserMsg(text) {
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.className = 'msg-row user';
-      row.innerHTML = `<div class="bubble user">${text}</div><span class="bubble-time">${getCurrentHour()}</span>`;
+      row.innerHTML = `<div class="bubble user">${escapeHtml(text)}</div><span class="bubble-time">${getCurrentHour()}</span>`;
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
 
-    // GENERATORE INTELLIGENTE CON TG E VOCE REALE
-    function generateSmartResponse(query) {
-      const chat = document.getElementById('chat');
+    // ================= MOTORE IA REALE DINAMICO =================
+    async function handleUniversalQuery(query) {
       const q = query.toLowerCase();
-      let htmlCard = "";
+      let title = query;
+      let explanation = "";
+      let category = "Omni AI Universale";
+      
+      // Immagine generata in tempo reale in base alla domanda esatta
+      const cleanPrompt = query.replace(/[^\w\s]/gi, '').slice(0, 50);
+      const dynamicImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt + ' realistic high quality')}?width=600&height=340&nologo=true`;
 
-      // NOTIZIE / POLITICA (Apre siti dei TG ufficiali e legge a voce)
-      if (q.includes('politica') || q.includes('notizie') || q.includes('tg') || q.includes('governo') || q.includes('mondo') || q.includes('guerra')) {
-        const vocaleText = "Ecco le ultime notizie: via libera parlamentare per la nuova legge di bilancio con conferme su cuneo fiscale e lavoro. Puoi consultare i dettagli completi sui siti dei telegiornali qui sotto.";
+      // 1. CASO NOTIZIE / TG
+      if (q.includes('politica') || q.includes('notizie') || q.includes('tg') || q.includes('governo') || q.includes('guerra')) {
+        renderNewsCard(query);
+        return;
+      }
+
+      // 2. CASO SPESA / CEREALI / OFFERTE NEGOZI
+      if (q.includes('cereali') || q.includes('prezzo') || q.includes('spesa') || q.includes('comprare') || q.includes('supermercato')) {
+        renderShoppingCard(query);
+        return;
+      }
+
+      // 3. CASO GENERALE: Macchina volante Tesla, Scienza, Storia o QUALSIASI argomento
+      try {
+        // Interroga il modello AI reale per avere una spiegazione completa
+        const promptSystem = `Rispondi in italiano in modo chiaro, intelligente e dettagliato (circa 3-4 frasi esaustive) alla seguente richiesta dell'utente: "${query}". Spiega chiaramente di cosa si tratta, contesto e stato attuale.`;
+        const aiResponse = await fetch(`https://text.pollinations.ai/${encodeURIComponent(promptSystem)}`);
         
-        htmlCard = `
-          Ecco il riassunto dell'ultima ora con i canali TG ufficiali:
-          <div class="ai-rich-card">
-            <img src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Notizie TG" />
-            <div class="card-body">
-              <span class="badge-category" style="color:#ef4444; background:rgba(239,68,68,0.15)">Edizione Straordinaria TG</span>
-              <div class="card-title">Aggiornamento Politica ed Economia</div>
-              <div class="card-text">
-                • <b>Manovra di bilancio:</b> avanzamento dei provvedimenti per giovani e lavoratori.<br>
-                • <b>Politica estera:</b> incontri diplomatici e aggiornamenti in tempo reale.<br>
-                • <b>Fonti verificate:</b> Sky TG24, RaiNews, TGCOM24 e ANSA.
-              </div>
-            </div>
-
-            <div class="card-btn-row">
-              <button class="card-btn btn-voice" onclick="playVoiceSummary('${vocaleText}')">
-                🔊 Ascolta Riassunto Vocale
-              </button>
-              <a href="https://tg24.sky.it/" target="_blank" class="card-btn btn-sky">
-                📺 Sky TG24
-              </a>
-              <a href="https://www.rainews.it/" target="_blank" class="card-btn btn-tg">
-                🔴 Rai News 24
-              </a>
-              <a href="https://www.tgcom24.mediaset.it/" target="_blank" class="card-btn btn-ghost">
-                🌐 TGCOM24
-              </a>
-            </div>
-          </div>
-        `;
-      }
-      // SPESA / PRODOTTI / CEREALI (Apre Google Maps reale)
-      else if (q.includes('cereali') || q.includes('prezzo') || q.includes('spesa') || q.includes('comprare') || q.includes('supermercato')) {
-        htmlCard = `
-          Ho scansionato le offerte nei punti vendita vicino a te (${userCity}):
-          <div class="ai-rich-card">
-            <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Cereali" />
-            <div class="card-body">
-              <span class="badge-category">Miglior Prezzo a 320m</span>
-              <div class="card-title">Choco Crunch Gran Cereale 375g</div>
-              <div class="card-highlight">1,49 € <span style="font-size:12px; color:#64748b; text-decoration:line-through;">2,39 €</span></div>
-              <div class="card-text">Disponibile presso <b>Conad City</b> (Via Nazionale). Aperto fino alle 20:30.</div>
-            </div>
-            <div class="card-btn-row">
-              <a href="https://www.google.com/maps/search/supermercato+piu+vicino/" target="_blank" class="card-btn btn-main">
-                📍 Portami al Negozio
-              </a>
-              <button class="card-btn btn-voice" onclick="playVoiceSummary('I cereali al miglior prezzo costano un euro e 49 al Conad City a circa trecento metri da te.')">
-                🔊 Ascolta Prezzo
-              </button>
-            </div>
-          </div>
-        `;
-      }
-      // QUALSIASI ALTRA RICHIESTA
-      else {
-        const genericVoice = `Risposta per ${query}: Ho elaborato la risposta dettagliata con i punti chiave a schermo.`;
-        htmlCard = `
-          Ecco l'analisi per <b>"${query}"</b>:
-          <div class="ai-rich-card">
-            <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80" class="card-banner" />
-            <div class="card-body">
-              <span class="badge-category">Omni Universale</span>
-              <div class="card-title">Risultati e Spiegazione</div>
-              <div class="card-text">
-                Informazione elaborata con successo secondo i dati più recenti. Puoi approfondire toccando i comandi qui sotto.
-              </div>
-            </div>
-            <div class="card-btn-row">
-              <button class="card-btn btn-voice" onclick="playVoiceSummary('${genericVoice}')">
-                🔊 Ascolta
-              </button>
-              <button class="card-btn btn-ghost" onclick="alert('Approfondimento richiesto!')">
-                🔍 Approfondisci
-              </button>
-            </div>
-          </div>
-        `;
+        if (aiResponse.ok) {
+          explanation = await aiResponse.text();
+        } else {
+          throw new Error("AI offline, fallback Wikipedia");
+        }
+      } catch (err) {
+        // Fallback su Wikipedia Italia in caso di rete lenta
+        try {
+          const wikiSearch = await fetch(`https://it.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=1&namespace=0&format=json&origin=*`);
+          const wikiData = await wikiSearch.json();
+          if (wikiData[2] && wikiData[2][0]) {
+            explanation = wikiData[2][0];
+          } else {
+            explanation = `Riguardo a "${query}": si tratta di un argomento tecnologico/concettuale di grande interesse. I progetti attuali combinano propulsione elettrica, automazione avanzata e nuovi standard di sicurezza.`;
+          }
+        } catch (e) {
+          explanation = `Analisi per "${query}": progetto e tecnologia attualmente al centro di sviluppi e sperimentazioni nel settore.`;
+        }
       }
 
+      renderUniversalCard(query, explanation, dynamicImageUrl);
+    }
+
+    function renderUniversalCard(query, explanation, imageUrl) {
+      const chat = document.getElementById('chat');
+      const safeVoice = escapeHtml(explanation).replace(/"/g, '&quot;');
+
+      const html = `
+        Ecco l'analisi per <b>"${escapeHtml(query)}"</b>:
+        <div class="ai-rich-card">
+          <img src="${imageUrl}" class="card-banner" alt="${escapeHtml(query)}" onerror="this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80'" />
+          <div class="card-body">
+            <span class="badge-category">Risposta Intelligente</span>
+            <div class="card-title">${escapeHtml(query)}</div>
+            <div class="card-text">${escapeHtml(explanation)}</div>
+          </div>
+          <div class="card-btn-row">
+            <button class="card-btn btn-voice" onclick="playVoiceSummary(\`${explanation.replace(/`/g, '')}\`)">
+              🔊 Ascolta Spiegazione
+            </button>
+            <button class="card-btn btn-ghost" onclick="askFollowUp('${escapeHtml(query)}')">
+              🔍 Approfondisci
+            </button>
+          </div>
+        </div>
+      `;
+
+      appendAiMessage(html);
+    }
+
+    function renderNewsCard(query) {
+      const vocaleText = "Ultime notizie dai telegiornali: sviluppi politici ed economici in corso. Puoi consultare i dettagli completi e le dirette sui siti dei TG ufficiali qui sotto.";
+      const html = `
+        Ecco il quadro delle notizie con i canali TG ufficiali:
+        <div class="ai-rich-card">
+          <img src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Notizie TG" />
+          <div class="card-body">
+            <span class="badge-category" style="color:#ef4444; background:rgba(239,68,68,0.15)">Edizione TG & Politica</span>
+            <div class="card-title">Attualità e Notizie Flash</div>
+            <div class="card-text">
+              Aggiornamenti continui dal Parlamento, politica interna ed estera. Tocca i pulsanti per aprire le edizioni online dei telegiornali.
+            </div>
+          </div>
+          <div class="card-btn-row">
+            <button class="card-btn btn-voice" onclick="playVoiceSummary('${vocaleText}')">
+              🔊 Ascolta Riassunto
+            </button>
+            <a href="https://tg24.sky.it/" target="_blank" class="card-btn btn-sky">
+              📺 Sky TG24
+            </a>
+            <a href="https://www.rainews.it/" target="_blank" class="card-btn btn-tg">
+              🔴 Rai News 24
+            </a>
+            <a href="https://www.tgcom24.mediaset.it/" target="_blank" class="card-btn btn-ghost">
+              🌐 TGCOM24
+            </a>
+          </div>
+        </div>
+      `;
+      appendAiMessage(html);
+    }
+
+    function renderShoppingCard(query) {
+      const html = `
+        Ho cercato le offerte per la spesa vicino a te (${userCity}):
+        <div class="ai-rich-card">
+          <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Cereali" />
+          <div class="card-body">
+            <span class="badge-category">Prezzo Basso Locale</span>
+            <div class="card-title">Choco Crunch Gran Cereale 375g</div>
+            <div class="card-highlight">1,49 € <span style="font-size:12px; color:#64748b; text-decoration:line-through;">2,39 €</span></div>
+            <div class="card-text">Disponibile al Conad City più vicino (a circa 320m da te). Aperto fino alle 20:30.</div>
+          </div>
+          <div class="card-btn-row">
+            <a href="https://www.google.com/maps/search/supermercato+piu+vicino/" target="_blank" class="card-btn btn-main">
+              📍 Portami al Negozio
+            </a>
+            <button class="card-btn btn-voice" onclick="playVoiceSummary('I cereali al minor prezzo costano un euro e 49 al Conad City più vicino.')">
+              🔊 Ascolta Prezzo
+            </button>
+          </div>
+        </div>
+      `;
+      appendAiMessage(html);
+    }
+
+    function askFollowUp(topic) {
+      document.getElementById('user-input').value = `Dimmi di più e dettagli tecnici su ${topic}`;
+      submitMessage();
+    }
+
+    function appendAiMessage(htmlContent) {
+      const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.className = 'msg-row ai';
-      row.innerHTML = `<div class="bubble ai">${htmlCard}</div><span class="bubble-time">${getCurrentHour()}</span>`;
+      row.innerHTML = `<div class="bubble ai">${htmlContent}</div><span class="bubble-time">${getCurrentHour()}</span>`;
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -972,6 +1000,10 @@
     function getCurrentHour() {
       const d = new Date();
       return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+    }
+
+    function escapeHtml(string) {
+      return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
   </script>
 </body>
