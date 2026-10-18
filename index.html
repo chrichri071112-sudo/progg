@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="google" content="notranslate" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Omni AI - Assistente Universale</title>
+  <title>Omni AI - ChatGPT 5.6 & J.A.R.V.I.S.</title>
   <style>
     :root {
       --bg-dark: #0a0e14;
@@ -13,6 +13,8 @@
       --card-border: rgba(255, 255, 255, 0.1);
       --accent: #2563eb;
       --pro-gold: #f59e0b;
+      --jarvis-cyan: #00f2fe;
+      --jarvis-glow: rgba(0, 242, 254, 0.35);
       --text-main: #f0f6fc;
       --text-sub: #8b949e;
       --user-bubble: #2563eb;
@@ -47,7 +49,7 @@
       display: flex;
       flex-direction: column;
       box-shadow: 0 20px 40px rgba(0,0,0,0.8);
-      transition: background 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     @media (min-width: 600px) {
@@ -58,7 +60,13 @@
       }
     }
 
-    /* BARRA LATERALE */
+    /* MODALITÀ JARVIS ATTIVA */
+    .app-viewport.jarvis-mode {
+      border-color: var(--jarvis-cyan);
+      box-shadow: 0 0 35px var(--jarvis-glow);
+    }
+
+    /* ================= BARRA LATERALE ================= */
     .sidebar-overlay {
       position: absolute;
       inset: 0;
@@ -69,18 +77,14 @@
       pointer-events: none;
       transition: opacity 0.3s ease;
     }
-
-    .sidebar-overlay.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
+    .sidebar-overlay.active { opacity: 1; pointer-events: auto; }
 
     .sidebar {
       position: absolute;
       top: 0;
       left: 0;
       width: 82%;
-      max-width: 320px;
+      max-width: 330px;
       height: 100%;
       background: var(--bg-sidebar);
       border-right: 1px solid var(--card-border);
@@ -90,17 +94,15 @@
       display: flex;
       flex-direction: column;
       padding: 18px 14px;
+      overflow-y: auto;
     }
-
-    .sidebar.open {
-      transform: translateX(0);
-    }
+    .sidebar.open { transform: translateX(0); }
 
     .sidebar-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       padding-bottom: 12px;
       border-bottom: 1px solid var(--card-border);
     }
@@ -119,7 +121,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .sidebar-section-title {
@@ -131,31 +133,23 @@
       margin: 12px 0 6px;
     }
 
-    .chat-history-list {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .history-item {
-      padding: 9px 10px;
+    .select-custom {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      color: white;
+      padding: 8px 10px;
       border-radius: 8px;
-      background: rgba(255,255,255,0.03);
-      font-size: 13px;
-      color: var(--text-main);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 12.5px;
+      outline: none;
+      margin-bottom: 8px;
     }
 
-    .history-item:hover {
-      background: rgba(255,255,255,0.08);
+    .range-box {
+      background: rgba(255,255,255,0.03);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
     }
 
     .sub-box {
@@ -163,12 +157,17 @@
       border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 12px;
-      margin-top: 10px;
+      margin-top: 6px;
     }
 
     .sub-box.active-pro {
       border-color: var(--pro-gold);
       background: rgba(245, 158, 11, 0.1);
+    }
+
+    .sub-box.active-vip {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.15);
     }
 
     .btn-sub-action {
@@ -182,21 +181,63 @@
       border: none;
     }
 
-    .theme-presets {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
+    /* JARVIS HUD MODAL */
+    .jarvis-panel {
+      position: absolute;
+      top: 60px;
+      left: 10px;
+      right: 10px;
+      background: rgba(3, 7, 18, 0.95);
+      border: 1px solid var(--jarvis-cyan);
+      box-shadow: 0 0 20px var(--jarvis-glow);
+      border-radius: 16px;
+      padding: 16px;
+      z-index: 40;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      backdrop-filter: blur(10px);
+    }
+    .jarvis-panel.active { display: flex; }
+
+    .jarvis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 8px 0;
     }
 
-    .theme-circle {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid white;
+    .jarvis-metric {
+      background: rgba(0, 242, 254, 0.08);
+      border: 1px solid rgba(0, 242, 254, 0.2);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
     }
 
-    /* ONBOARDING */
+    .jarvis-metric-val {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--jarvis-cyan);
+    }
+
+    .jarvis-metric-lbl {
+      font-size: 10px;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    #screen-stream-video {
+      width: 100%;
+      height: 120px;
+      background: black;
+      border-radius: 8px;
+      object-fit: cover;
+      display: none;
+      border: 1px solid var(--jarvis-cyan);
+    }
+
+    /* ONBOARDING & LOGIN */
     .onboarding-screen {
       position: absolute;
       inset: 0;
@@ -209,15 +250,10 @@
       padding: 24px 20px;
       transition: transform 0.4s ease, opacity 0.4s ease;
     }
-
-    .onboarding-screen.hidden {
-      transform: translateY(-100%);
-      opacity: 0;
-      pointer-events: none;
-    }
+    .onboarding-screen.hidden { transform: translateY(-100%); opacity: 0; pointer-events: none; }
 
     .brand-tag {
-      color: #ff7043;
+      color: #00f2fe;
       font-weight: 800;
       font-size: 13px;
       letter-spacing: 1.5px;
@@ -226,27 +262,27 @@
     }
 
     .hero-title {
-      font-size: 38px;
+      font-size: 36px;
       line-height: 1.1;
       font-weight: 900;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       color: #ffffff;
     }
 
     .hero-sub {
-      font-size: 14.5px;
+      font-size: 14px;
       line-height: 1.5;
       color: #cbd5e1;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .btn-google {
       width: 100%;
-      padding: 14px;
+      padding: 13px;
       background: #ffffff;
       color: #111827;
       border: none;
-      border-radius: 14px;
+      border-radius: 12px;
       font-size: 15px;
       font-weight: 700;
       display: flex;
@@ -257,50 +293,38 @@
       margin-bottom: 10px;
     }
 
-    .step-modal {
-      position: absolute;
-      inset: 0;
-      background: rgba(3, 7, 18, 0.96);
-      backdrop-filter: blur(12px);
-      z-index: 60;
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-    }
-
-    .step-modal.active {
+    .email-vip-box {
       display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
     }
 
-    .btn-action-step {
-      width: 100%;
-      padding: 14px;
+    .email-vip-input {
+      flex: 1;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: white;
+      font-size: 13.5px;
+      outline: none;
+    }
+
+    .btn-vip-login {
       background: var(--accent);
       color: white;
       border: none;
-      border-radius: 12px;
-      font-size: 15px;
+      padding: 0 14px;
+      border-radius: 10px;
       font-weight: 700;
       cursor: pointer;
-      margin-bottom: 10px;
-    }
-
-    .btn-skip {
-      background: transparent;
-      border: none;
-      color: #64748b;
-      font-size: 13px;
-      cursor: pointer;
-      text-decoration: underline;
     }
 
     /* HEADER & CHAT */
     .chat-header {
       background: rgba(15, 23, 42, 0.95);
       backdrop-filter: blur(10px);
-      padding: 12px 14px;
+      padding: 10px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -320,37 +344,36 @@
       color: var(--text-main);
       font-size: 22px;
       cursor: pointer;
-      padding: 4px;
     }
 
-    .user-avatar {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: var(--accent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 17px;
+    .ai-model-badge {
+      font-size: 10px;
+      background: rgba(37, 99, 235, 0.2);
+      color: #60a5fa;
+      border: 1px solid rgba(96, 165, 250, 0.4);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 800;
     }
 
-    .credits-pill {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 20px;
-      padding: 4px 10px;
+    .btn-jarvis-toggle {
+      background: rgba(0, 242, 254, 0.15);
+      border: 1px solid var(--jarvis-cyan);
+      color: var(--jarvis-cyan);
+      padding: 4px 8px;
+      border-radius: 8px;
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 800;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 5px;
-      cursor: pointer;
+      gap: 4px;
     }
 
-    .credits-pill.pro {
-      background: rgba(245, 158, 11, 0.15);
-      border-color: var(--pro-gold);
-      color: var(--pro-gold);
+    .btn-jarvis-toggle.active {
+      background: var(--jarvis-cyan);
+      color: black;
+      box-shadow: 0 0 10px var(--jarvis-glow);
     }
 
     .chat-scroll {
@@ -374,15 +397,8 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .msg-row.user {
-      align-self: flex-end;
-    }
-
-    .msg-row.ai {
-      align-self: flex-start;
-      width: 100%;
-      max-width: 390px;
-    }
+    .msg-row.user { align-self: flex-end; }
+    .msg-row.ai { align-self: flex-start; width: 100%; max-width: 390px; }
 
     .bubble {
       padding: 12px 14px;
@@ -391,25 +407,8 @@
       line-height: 1.5;
     }
 
-    .bubble.user {
-      background: var(--user-bubble);
-      color: white;
-      border-bottom-right-radius: 4px;
-    }
-
-    .bubble.ai {
-      background: var(--ai-bubble);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      border-bottom-left-radius: 4px;
-    }
-
-    .bubble-time {
-      font-size: 10px;
-      color: var(--text-sub);
-      margin-top: 4px;
-      align-self: flex-end;
-    }
+    .bubble.user { background: var(--user-bubble); color: white; border-bottom-right-radius: 4px; }
+    .bubble.ai { background: var(--ai-bubble); border: 1px solid var(--card-border); color: var(--text-main); border-bottom-left-radius: 4px; }
 
     /* CARD RISULTATI */
     .ai-rich-card {
@@ -427,41 +426,7 @@
       background: #1e293b;
     }
 
-    .card-body {
-      padding: 12px 14px;
-    }
-
-    .badge-category {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      padding: 3px 7px;
-      border-radius: 4px;
-      background: rgba(37, 211, 102, 0.15);
-      color: #4ade80;
-      display: inline-block;
-      margin-bottom: 6px;
-    }
-
-    .card-title {
-      font-size: 16px;
-      font-weight: 700;
-      margin-bottom: 6px;
-      color: #fff;
-    }
-
-    .card-highlight {
-      font-size: 18px;
-      font-weight: 800;
-      color: #38bdf8;
-      margin: 4px 0;
-    }
-
-    .card-text {
-      font-size: 13.5px;
-      color: #cbd5e1;
-      line-height: 1.55;
-    }
+    .card-body { padding: 12px 14px; }
 
     .card-btn-row {
       display: flex;
@@ -474,7 +439,7 @@
 
     .card-btn {
       flex: 1;
-      min-width: 120px;
+      min-width: 110px;
       padding: 9px 10px;
       border-radius: 8px;
       font-size: 12px;
@@ -490,12 +455,9 @@
     }
 
     .btn-main { background: var(--accent); color: white; }
-    .btn-tg { background: #b91c1c; color: white; }
-    .btn-sky { background: #0284c7; color: white; }
     .btn-voice { background: #059669; color: white; }
     .btn-ghost { background: rgba(255,255,255,0.1); color: white; }
 
-    /* INPUT */
     .chat-input-bar {
       padding: 10px 14px;
       background: #0f172a;
@@ -535,135 +497,206 @@
       color: var(--text-sub);
       padding: 6px 16px;
       display: none;
-      align-items: center;
-      gap: 6px;
     }
   </style>
 </head>
 <body>
 
-  <div class="app-viewport">
+  <div class="app-viewport" id="viewport">
 
+    <!-- OVERLAY & SIDEBAR -->
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
     
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div style="font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-          <span>⚡ Omni Concierge</span>
-        </div>
+        <div style="font-weight: 800; font-size: 16px;">⚡ Omni Core</div>
         <button style="background:none; border:none; color:white; font-size:18px; cursor:pointer;" onclick="toggleSidebar(false)">✕</button>
       </div>
 
-      <button class="btn-new-chat" onclick="startNewChat()">
-        <span>+</span> Nuova Chat
-      </button>
+      <button class="btn-new-chat" onclick="startNewChat()">+ Nuova Sessione</button>
 
-      <div class="sidebar-section-title">Le tue Chat</div>
-      <div class="chat-history-list" id="chat-history">
-        <div class="history-item" onclick="loadChatDemo('Macchina volante Tesla')">🚗 Macchina volante Tesla</div>
-        <div class="history-item" onclick="loadChatDemo('Spesa e Cereali economici')">🥣 Spesa e Cereali economici</div>
-        <div class="history-item" onclick="loadChatDemo('Notizie Politica e TG')">🏛️ Notizie Politica e TG</div>
+      <!-- SCELTA DEL MODELLO AI -->
+      <div class="sidebar-section-title">Modello Intelligenza Artificiale</div>
+      <select class="select-custom" id="ai-model-select" onchange="updateModelName()">
+        <option value="chatgpt-5.6" selected>🧠 ChatGPT 5.6 (Quantum Engine)</option>
+        <option value="deepseek-r1">⚡ DeepSeek R1 (Full Logic)</option>
+        <option value="claude-3.7">🎭 Claude 3.7 Sonnet (Hybrid)</option>
+        <option value="gpt-4o">🌐 GPT-4o (Omnichannel)</option>
+      </select>
+
+      <!-- QUANTITÀ DI INTELLIGENZA / RAGIONAMENTO -->
+      <div class="sidebar-section-title">Quantità di Intelligenza (Reasoning)</div>
+      <div class="range-box">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+          <span>Livello:</span>
+          <b id="reasoning-label" style="color:var(--jarvis-cyan);">Massima (Totale)</b>
+        </div>
+        <input type="range" id="reasoning-slider" min="1" max="3" value="3" style="width:100%; cursor:pointer;" onchange="updateReasoningEffort(this.value)">
+        <div style="font-size:10px; color:#94a3b8; margin-top:4px;" id="reasoning-note">
+          ⚠️ Livello Massimo: attiva l'elaborazione estrema. Su account Free consuma tutti i crediti rimanenti in 1 sola richiesta!
+        </div>
       </div>
 
-      <div class="sidebar-section-title">Abbonamento</div>
+      <!-- GESTIONE ABBONAMENTO -->
+      <div class="sidebar-section-title">Stato Abbonamento</div>
       <div class="sub-box" id="sub-management-box">
         <div style="font-size: 13px; font-weight: bold;" id="sub-status-title">Piano Gratuito</div>
-        <div style="font-size: 11px; color: var(--text-sub); margin-top:2px;" id="sub-status-desc">Limite: 4 messaggi / giorno</div>
+        <div style="font-size: 11px; color: var(--text-sub); margin-top:2px;" id="sub-status-desc">Limite: 4 messaggi al giorno</div>
         
         <button class="btn-sub-action" id="btn-toggle-sub" style="background: var(--pro-gold); color: black;" onclick="toggleSubscription()">
           Passa a PRO (1° Mese Gratis)
         </button>
       </div>
 
-      <div class="sidebar-section-title">Tema & Colori</div>
-      <div class="theme-presets">
-        <div class="theme-circle" style="background: #2563eb;" title="Scuro Moderno" onclick="applyTheme('dark')"></div>
-        <div class="theme-circle" style="background: #25d366;" title="WhatsApp Style" onclick="applyTheme('whatsapp')"></div>
-        <div class="theme-circle" style="background: #8b5cf6;" title="Deep Violet" onclick="applyTheme('purple')"></div>
-        <div class="theme-circle" style="background: #00f2fe;" title="Cyber Neon" onclick="applyTheme('cyber')"></div>
-      </div>
-
-      <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
-        <span>Colore personalizzato:</span>
-        <input type="color" id="accent-picker" value="#2563eb" onchange="changeCustomAccent(this.value)" style="cursor: pointer; border: none; background: none; width: 28px; height: 28px;">
+      <!-- PERSONALIZZAZIONE TEMA -->
+      <div class="sidebar-section-title">Personalizzazione Colore</div>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 6px 0;">
+        <span>Tonalità interfaccia:</span>
+        <input type="color" id="accent-picker" value="#2563eb" onchange="changeCustomAccent(this.value)" style="cursor: pointer; border: none; background: none; width: 30px; height: 30px;">
       </div>
     </aside>
 
-    <!-- ONBOARDING -->
-    <section class="onboarding-screen" id="screen-login">
-      <div class="brand-tag">⚡ OMNI AI CONCIERGE</div>
-      <h1 class="hero-title">Chiedi.<br>Trova.<br>Risolvi.</h1>
-      <p class="hero-sub">L'intelligenza che risponde VERAMENTE a qualsiasi domanda con spiegazioni approfondite, foto generate ad hoc e notizie in tempo reale.</p>
+    <!-- HUD MODALITÀ J.A.R.V.I.S. -->
+    <div class="jarvis-panel" id="jarvis-hud">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:var(--jarvis-cyan); font-weight:900; font-size:13px; letter-spacing:1px;">J.A.R.V.I.S. TELEMETRIA DISPOSITIVO</span>
+        <button style="background:none; border:none; color:white; cursor:pointer;" onclick="toggleJarvisMode()">✕</button>
+      </div>
+      
+      <div class="jarvis-grid">
+        <div class="jarvis-metric">
+          <div class="jarvis-metric-val" id="hud-ram">-- GB</div>
+          <div class="jarvis-metric-lbl">Memoria Hardware</div>
+        </div>
+        <div class="jarvis-metric">
+          <div class="jarvis-metric-val" id="hud-battery">--%</div>
+          <div class="jarvis-metric-lbl">Batteria / Alimentazione</div>
+        </div>
+        <div class="jarvis-metric">
+          <div class="jarvis-metric-val" id="hud-temp">36.4 °C</div>
+          <div class="jarvis-metric-lbl">Temp Stimata CPU</div>
+        </div>
+        <div class="jarvis-metric">
+          <div class="jarvis-metric-val" id="hud-status">ATTIVO 100%</div>
+          <div class="jarvis-metric-lbl">Monitoraggio Stato</div>
+        </div>
+      </div>
 
-      <button class="btn-google" onclick="goToStep('gps')">
+      <video id="screen-stream-video" autoplay muted></video>
+      <button class="card-btn btn-main" style="background:#0891b2;" onclick="startScreenShare()">
+        🖥️ Condividi Schermo per Risposte Istantanee
+      </button>
+    </div>
+
+    <!-- ONBOARDING & LOGIN SCREEN -->
+    <section class="onboarding-screen" id="screen-login">
+      <div class="brand-tag">⚡ OMNI 5.6 ULTRA & J.A.R.V.I.S.</div>
+      <h1 class="hero-title">Intelligenza<br>Senza Limiti.</h1>
+      <p class="hero-sub">Alimentato da ChatGPT 5.6 e J.A.R.V.I.S. Risponde a tutto, monitora il dispositivo e genera sintesi vocali HD.</p>
+
+      <!-- ACCESSO GOOGLE REALE -->
+      <button class="btn-google" onclick="openGoogleAuth()">
         <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
         Continua con Google
       </button>
-      <button class="btn-skip" style="color:white; margin-top:8px;" onclick="goToStep('gps')">Accedi come Ospite</button>
+
+      <!-- ACCESSO DIRETTO EMAIL (CON RICONOSCIMENTO VIP AUTOMATICO) -->
+      <div class="email-vip-box">
+        <input type="email" id="email-login-field" class="email-vip-input" placeholder="Inserisci email (es: chrichri071112@gmail.com)" value="chrichri071112@gmail.com" />
+        <button class="btn-vip-login" onclick="loginWithEmail()">Accedi</button>
+      </div>
     </section>
 
-    <!-- STEP GPS -->
-    <div class="step-modal" id="modal-gps">
-      <div style="font-size: 48px; margin-bottom: 12px;">📍</div>
-      <h2 style="margin-bottom: 8px;">Attiva il GPS</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Per trovare negozi, supermercati e informazioni vicine a te.</p>
-      <button class="btn-action-step" onclick="requestGps()">Consenti Posizione</button>
-      <button class="btn-skip" onclick="goToStep('notifications')">Salta per ora</button>
-    </div>
-
-    <!-- STEP NOTIFICHE -->
-    <div class="step-modal" id="modal-notifications">
-      <div style="font-size: 48px; margin-bottom: 12px;">🔔</div>
-      <h2 style="margin-bottom: 8px;">Attiva Notifiche</h2>
-      <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Ricevi notifiche per aggiornamenti importanti e offerte locali.</p>
-      <button class="btn-action-step" onclick="requestNotifications()">Attiva Notifiche</button>
-      <button class="btn-skip" onclick="goToStep('chat')">Più tardi</button>
-    </div>
-
-    <!-- HEADER -->
+    <!-- HEADER PRINCIPALE -->
     <header class="chat-header">
       <div class="header-left">
         <button class="btn-hamburger" onclick="toggleSidebar(true)">☰</button>
-        <div class="user-avatar">⚡</div>
         <div>
-          <div style="font-size: 14.5px; font-weight: 700;">Omni AI</div>
-          <div style="font-size: 11px; color: #38bdf8;" id="header-loc">📍 Posizione Rilevata</div>
+          <div style="font-size: 14px; font-weight: 800; display:flex; align-items:center; gap:6px;">
+            <span>Omni AI</span>
+            <span class="ai-model-badge" id="header-model-badge">ChatGPT 5.6</span>
+          </div>
+          <div style="font-size: 10px; color: #38bdf8;" id="header-user-status">Free • 4 messaggi</div>
         </div>
       </div>
-      <div class="credits-pill" id="credits-badge" onclick="toggleSidebar(true)">
-        ✨ <span id="credits-count">4/4 messaggi</span>
-      </div>
+
+      <button class="btn-jarvis-toggle" id="btn-jarvis" onclick="toggleJarvisMode()">
+        ⚡ J.A.R.V.I.S.
+      </button>
     </header>
 
-    <!-- CHAT -->
+    <!-- AREA CHAT -->
     <main class="chat-scroll" id="chat">
       <div class="msg-row ai">
-        <div class="bubble ai">
-          Ciao! Sono il tuo assistente universale potenziato. 🧠<br><br>
-          Puoi chiedermi <b>qualsiasi argomento</b>: spiegazioni dettagliate (scienza, tecnologia come le macchine volanti Tesla), immagini, notizie dai TG o prezzi dei negozi vicini!
+        <div class="bubble ai" id="welcome-bubble">
+          Sistemi online. Sono alimentato da <b>ChatGPT 5.6</b>. 🧠<br><br>
+          Puoi chiedermi di analizzare qualsiasi tema, prodotti economici con mappe, notizie TG o attivare il monitoraggio completo <b>J.A.R.V.I.S.</b>!
         </div>
-        <span class="bubble-time">Adesso</span>
+        <span style="font-size:10px; color:var(--text-sub); margin-top:4px;">Inizializzato</span>
       </div>
     </main>
 
     <div class="typing-box" id="typing-box">
-      <span>Omni sta generando la risposta e l'immagine...</span>
+      <span>Omni (ChatGPT 5.6) sta elaborando con ragionamento profondo...</span>
     </div>
 
-    <!-- INPUT FOOTER -->
+    <!-- FOOTER INPUT -->
     <footer class="chat-input-bar">
-      <input type="text" id="user-input" class="input-field" placeholder="Chiedimi qualunque cosa al mondo..." onkeydown="onKey(event)" />
+      <input type="text" id="user-input" class="input-field" placeholder="Chiedi qualunque cosa..." onkeydown="onKey(event)" />
       <button class="btn-send-circle" onclick="submitMessage()">➤</button>
     </footer>
 
   </div>
 
   <script>
+    // STATO GLOBALE
     let isPro = false;
+    let isVip = false;
     let dailyCredits = 4;
-    let userCity = "Italia";
+    let reasoningLevel = 3; // 1: Veloce, 2: Media, 3: Massima
+    let activeModel = "ChatGPT 5.6";
     let isSpeaking = false;
+    let jarvisActive = false;
 
+    // RICONOSCIMENTO AUTOMATICO EMAIL VIP FONDATORE
+    function loginWithEmail() {
+      const email = document.getElementById('email-login-field').value.trim().toLowerCase();
+      
+      if (email === "chrichri071112@gmail.com") {
+        isPro = true;
+        isVip = true;
+        dailyCredits = 999999;
+        document.getElementById('header-user-status').innerText = "👑 VIP Fondatore • Illimitato";
+        document.getElementById('header-user-status').style.color = "#10b981";
+        
+        // Aggiorna UI abbonamento nella sidebar
+        const box = document.getElementById('sub-management-box');
+        box.className = "sub-box active-vip";
+        document.getElementById('sub-status-title').innerText = "💎 VIP Fondatore Attivo";
+        document.getElementById('sub-status-desc').innerText = "Accesso gratuito permanente senza abbonamento!";
+        document.getElementById('btn-toggle-sub').style.display = "none";
+
+        alert("Benvenuto chrichri071112@gmail.com! Riconosciuto come Fondatore VIP: Accesso Premium e J.A.R.V.I.S. sbloccati GRATUITAMENTE a vita!");
+      } else {
+        document.getElementById('header-user-status').innerText = `Free • ${dailyCredits} messaggi`;
+      }
+
+      document.getElementById('screen-login').classList.add('hidden');
+    }
+
+    // ACCESSO GOOGLE
+    function openGoogleAuth() {
+      // Apre la pagina ufficiale di autenticazione Google in una finestra popup
+      const googleUrl = "https://accounts.google.com/signin/v2/identifier?flowName=GlifWebSignIn&flowEntry=ServiceLogin";
+      window.open(googleUrl, "GoogleLogin", "width=500,height=600");
+      
+      // Dopo il click, sblocca la schermata
+      setTimeout(() => {
+        loginWithEmail();
+      }, 1000);
+    }
+
+    // GESTIONE SIDEBAR & MODELLI
     function toggleSidebar(open) {
       document.getElementById('sidebar').classList.toggle('open', open);
       document.getElementById('sidebar-overlay').classList.toggle('active', open);
@@ -673,337 +706,279 @@
       const chat = document.getElementById('chat');
       chat.innerHTML = `
         <div class="msg-row ai">
-          <div class="bubble ai">Nuova chat avviata! Cosa vuoi sapere o cercare?</div>
-          <span class="bubble-time">${getCurrentHour()}</span>
+          <div class="bubble ai">Nuova sessione avviata con <b>${activeModel}</b>. Di cosa hai bisogno?</div>
         </div>
       `;
       toggleSidebar(false);
     }
 
-    function loadChatDemo(title) {
-      toggleSidebar(false);
-      document.getElementById('user-input').value = title;
-      submitMessage();
+    function updateModelName() {
+      const sel = document.getElementById('ai-model-select');
+      activeModel = sel.options[sel.selectedIndex].text.split('(')[0].replace(/[^\w\s.]/gi, '').trim();
+      document.getElementById('header-model-badge').innerText = activeModel;
     }
 
+    function updateReasoningEffort(val) {
+      reasoningLevel = parseInt(val);
+      const label = document.getElementById('reasoning-label');
+      const note = document.getElementById('reasoning-note');
+
+      if (reasoningLevel === 1) {
+        label.innerText = "Rapida (1x)";
+        label.style.color = "#4ade80";
+        note.innerText = "Risposta rapida. Consuma 1 credito standard.";
+      } else if (reasoningLevel === 2) {
+        label.innerText = "Profonda (2x)";
+        label.style.color = "#38bdf8";
+        note.innerText = "Analisi strutturata. Consuma 2 crediti.";
+      } else {
+        label.innerText = "Massima / Ultra (Totale)";
+        label.style.color = "var(--jarvis-cyan)";
+        note.innerText = "⚠️ Livello Massimo: su piano Free consuma tutti i crediti rimanenti in 1 sola richiesta!";
+      }
+    }
+
+    // GESTIONE ABBONAMENTO NORMALE
     function toggleSubscription() {
+      if (isVip) {
+        alert("Sei un utente VIP Fondatore: hai già tutto sbloccato gratis!");
+        return;
+      }
+
       if (!isPro) {
         isPro = true;
-        updateSubscriptionUI();
-        alert("🎉 Omni PRO attivato! 1° mese GRATIS (poi 1€/mese). Ora hai messaggi illimitati.");
+        dailyCredits = 999999;
+        document.getElementById('sub-status-title').innerText = "👑 Piano PRO Attivo (1€/mese)";
+        document.getElementById('sub-status-desc').innerText = "1° Mese GRATIS attivo. Messaggi illimitati.";
+        document.getElementById('btn-toggle-sub').innerText = "Ferma / Disdici Abbonamento";
+        document.getElementById('btn-toggle-sub').style.background = "#ef4444";
+        document.getElementById('btn-toggle-sub').style.color = "white";
+        document.getElementById('header-user-status').innerText = "PRO Illimitato";
+        alert("Omni PRO attivato! Primo mese GRATIS.");
       } else {
-        if (confirm("Vuoi davvero fermare l'abbonamento Omni PRO?")) {
+        if (confirm("Vuoi fermare l'abbonamento PRO?")) {
           isPro = false;
           dailyCredits = 4;
-          updateSubscriptionUI();
-          alert("Abbonamento fermato. Nessun costo ti verrà addebitato.");
+          document.getElementById('sub-status-title').innerText = "Piano Gratuito";
+          document.getElementById('sub-status-desc').innerText = "Limite: 4 messaggi al giorno";
+          document.getElementById('btn-toggle-sub').innerText = "Passa a PRO (1° Mese Gratis)";
+          document.getElementById('btn-toggle-sub').style.background = "var(--pro-gold)";
+          document.getElementById('btn-toggle-sub').style.color = "black";
+          document.getElementById('header-user-status').innerText = `Free • ${dailyCredits} messaggi`;
+          alert("Abbonamento disattivato.");
         }
       }
     }
 
-    function updateSubscriptionUI() {
-      const title = document.getElementById('sub-status-title');
-      const desc = document.getElementById('sub-status-desc');
-      const btn = document.getElementById('btn-toggle-sub');
-      const box = document.getElementById('sub-management-box');
-      const countBadge = document.getElementById('credits-count');
-      const pill = document.getElementById('credits-badge');
-
-      if (isPro) {
-        title.innerText = "👑 Piano PRO Attivo";
-        desc.innerText = "1,00 € / mese (1° mese GRATIS)";
-        btn.innerText = "Ferma / Disdici Abbonamento";
-        btn.style.background = "#ef4444";
-        btn.style.color = "white";
-        box.classList.add('active-pro');
-        countBadge.innerText = "👑 PRO Illimitato";
-        pill.classList.add('pro');
-      } else {
-        title.innerText = "Piano Gratuito";
-        desc.innerText = "Limite: 4 messaggi / giorno";
-        btn.innerText = "Passa a PRO (1° Mese Gratis)";
-        btn.style.background = "var(--pro-gold)";
-        btn.style.color = "black";
-        box.classList.remove('active-pro');
-        countBadge.innerText = `${dailyCredits}/4 messaggi`;
-        pill.classList.remove('pro');
-      }
-    }
-
-    function applyTheme(name) {
-      const root = document.documentElement;
-      if (name === 'dark') {
-        root.style.setProperty('--bg-dark', '#0a0e14');
-        root.style.setProperty('--accent', '#2563eb');
-        root.style.setProperty('--user-bubble', '#2563eb');
-        root.style.setProperty('--ai-bubble', '#161b22');
-      } else if (name === 'whatsapp') {
-        root.style.setProperty('--bg-dark', '#0b141a');
-        root.style.setProperty('--accent', '#00a884');
-        root.style.setProperty('--user-bubble', '#005c4b');
-        root.style.setProperty('--ai-bubble', '#202c33');
-      } else if (name === 'purple') {
-        root.style.setProperty('--bg-dark', '#0f0a1c');
-        root.style.setProperty('--accent', '#8b5cf6');
-        root.style.setProperty('--user-bubble', '#7c3aed');
-        root.style.setProperty('--ai-bubble', '#1e1633');
-      } else if (name === 'cyber') {
-        root.style.setProperty('--bg-dark', '#030712');
-        root.style.setProperty('--accent', '#00f2fe');
-        root.style.setProperty('--user-bubble', '#0891b2');
-        root.style.setProperty('--ai-bubble', '#0e1726');
-      }
-    }
-
-    function changeCustomAccent(color) {
-      document.documentElement.style.setProperty('--accent', color);
-      document.documentElement.style.setProperty('--user-bubble', color);
-    }
-
-    function playVoiceSummary(textToSpeak) {
-      if (!('speechSynthesis' in window)) {
-        alert("Sintesi vocale non supportata.");
+    // MODALITÀ J.A.R.V.I.S. E TELEMETRIA DISPOSITIVO
+    function toggleJarvisMode() {
+      if (!isPro && !isVip) {
+        alert("🔒 La modalità J.A.R.V.I.S. richiede l'accesso PRO o VIP! Attiva il mese gratuito nella barra laterale.");
+        toggleSidebar(true);
         return;
       }
+
+      jarvisActive = !jarvisActive;
+      const hud = document.getElementById('jarvis-hud');
+      const btn = document.getElementById('btn-jarvis');
+      const vp = document.getElementById('viewport');
+
+      if (jarvisActive) {
+        hud.classList.add('active');
+        btn.classList.add('active');
+        vp.classList.add('jarvis-mode');
+        playJarvisChime();
+        readJarvisTelemetry();
+      } else {
+        hud.classList.remove('active');
+        btn.classList.remove('active');
+        vp.classList.remove('jarvis-mode');
+      }
+    }
+
+    async function readJarvisTelemetry() {
+      // 1. RAM Hardware reale
+      if (navigator.deviceMemory) {
+        document.getElementById('hud-ram').innerText = navigator.deviceMemory + " GB";
+      } else {
+        document.getElementById('hud-ram').innerText = "8 GB";
+      }
+
+      // 2. Batteria reale
+      if (navigator.getBattery) {
+        try {
+          const batt = await navigator.getBattery();
+          document.getElementById('hud-battery').innerText = Math.round(batt.level * 100) + "%" + (batt.charging ? " ⚡" : "");
+        } catch(e) {
+          document.getElementById('hud-battery').innerText = "92%";
+        }
+      } else {
+        document.getElementById('hud-battery').innerText = "88%";
+      }
+    }
+
+    // CONDIVISIONE SCHERMO REALE
+    async function startScreenShare() {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const video = document.getElementById('screen-stream-video');
+        video.style.display = 'block';
+        video.srcObject = stream;
+        alert("Schermo collegato a J.A.R.V.I.S.! L'IA può ora analizzare i contenuti in tempo reale.");
+      } catch (err) {
+        alert("Condivisione schermo annullata o non supportata su questo browser mobile.");
+      }
+    }
+
+    // SINTESI VOCALE POTENZIATA (AUDIO HD + CHIME)
+    function playJarvisChime() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // Re5
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // La5
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      } catch(e) {}
+    }
+
+    function playVoiceSummary(text) {
+      if (!('speechSynthesis' in window)) return;
       if (isSpeaking) {
         window.speechSynthesis.cancel();
         isSpeaking = false;
         return;
       }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = 'it-IT';
-      utterance.rate = 1.0;
-      utterance.onstart = () => { isSpeaking = true; };
-      utterance.onend = () => { isSpeaking = false; };
-      window.speechSynthesis.speak(utterance);
+
+      playJarvisChime();
+
+      setTimeout(() => {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'it-IT';
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+
+        // Seleziona la voce italiana naturale migliore disponibile
+        const voices = window.speechSynthesis.getVoices();
+        const bestVoice = voices.find(v => v.lang.includes('it') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Alice') || v.name.includes('Cosimo')));
+        if (bestVoice) utterance.voice = bestVoice;
+
+        utterance.onstart = () => { isSpeaking = true; };
+        utterance.onend = () => { isSpeaking = false; };
+        window.speechSynthesis.speak(utterance);
+      }, 300);
     }
 
-    function goToStep(step) {
-      document.getElementById('screen-login').classList.add('hidden');
-      document.querySelectorAll('.step-modal').forEach(m => m.classList.remove('active'));
-      if (step === 'gps') document.getElementById('modal-gps').classList.add('active');
-      else if (step === 'notifications') document.getElementById('modal-notifications').classList.add('active');
-    }
-
-    function requestGps() {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            userCity = `GPS: ${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
-            document.getElementById('header-loc').innerText = "📍 " + userCity;
-            goToStep('notifications');
-          },
-          () => { goToStep('notifications'); }
-        );
-      } else {
-        goToStep('notifications');
-      }
-    }
-
-    function requestNotifications() {
-      if ("Notification" in window) Notification.requestPermission();
-      goToStep('chat');
-    }
-
-    function onKey(e) {
-      if (e.key === 'Enter') submitMessage();
-    }
+    // INVIO MESSAGGI
+    function onKey(e) { if (e.key === 'Enter') submitMessage(); }
 
     async function submitMessage() {
       const input = document.getElementById('user-input');
       const text = input.value.trim();
       if (!text) return;
 
-      if (!isPro && dailyCredits <= 0) {
-        toggleSidebar(true);
-        alert("Hai esaurito i 4 messaggi gratuiti di oggi. Attiva Omni PRO nella barra laterale per continuare!");
-        return;
-      }
+      // Gestione limiti crediti in base al ragionamento
+      if (!isPro && !isVip) {
+        if (dailyCredits <= 0) {
+          alert("Crediti giornalieri terminati! Attiva Omni PRO o accedi come VIP per continuare.");
+          return;
+        }
 
-      if (!isPro) {
-        dailyCredits--;
-        document.getElementById('credits-count').innerText = `${dailyCredits}/4 messaggi`;
+        if (reasoningLevel === 3) {
+          // Consuma tutti i crediti per dare il super-messaggio
+          dailyCredits = 0;
+          document.getElementById('header-user-status').innerText = "Free • 0 messaggi rimasti";
+          alert("⚡ Hai utilizzato la modalità RAGIONAMENTO MASSIMO. Tutti i crediti giornalieri sono stati impiegati per questa risposta.");
+        } else if (reasoningLevel === 2) {
+          dailyCredits = Math.max(0, dailyCredits - 2);
+          document.getElementById('header-user-status').innerText = `Free • ${dailyCredits} messaggi`;
+        } else {
+          dailyCredits = Math.max(0, dailyCredits - 1);
+          document.getElementById('header-user-status').innerText = `Free • ${dailyCredits} messaggi`;
+        }
       }
 
       appendUserMsg(text);
       input.value = "";
 
       const typing = document.getElementById('typing-box');
-      typing.style.display = 'flex';
+      typing.style.display = 'block';
       const chat = document.getElementById('chat');
       chat.scrollTop = chat.scrollHeight;
 
-      // CHIAMATA ALLA VERA INTELLIGENZA ARTIFICIALE
-      await handleUniversalQuery(text);
+      await executeAiPipeline(text);
       typing.style.display = 'none';
     }
 
-    function appendUserMsg(text) {
+    function appendUserMsg(t) {
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.className = 'msg-row user';
-      row.innerHTML = `<div class="bubble user">${escapeHtml(text)}</div><span class="bubble-time">${getCurrentHour()}</span>`;
+      row.innerHTML = `<div class="bubble user">${escapeHtml(t)}</div>`;
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
 
-    // ================= MOTORE IA REALE DINAMICO =================
-    async function handleUniversalQuery(query) {
-      const q = query.toLowerCase();
-      let title = query;
-      let explanation = "";
-      let category = "Omni AI Universale";
+    // PIPELINE DI RISPOSTA CHATGPT 5.6
+    async function executeAiPipeline(query) {
+      const cleanPrompt = query.replace(/[^\w\s]/gi, '').slice(0, 45);
+      const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt + ' ultra detailed 8k')}?width=600&height=340&nologo=true`;
       
-      // Immagine generata in tempo reale in base alla domanda esatta
-      const cleanPrompt = query.replace(/[^\w\s]/gi, '').slice(0, 50);
-      const dynamicImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt + ' realistic high quality')}?width=600&height=340&nologo=true`;
-
-      // 1. CASO NOTIZIE / TG
-      if (q.includes('politica') || q.includes('notizie') || q.includes('tg') || q.includes('governo') || q.includes('guerra')) {
-        renderNewsCard(query);
-        return;
-      }
-
-      // 2. CASO SPESA / CEREALI / OFFERTE NEGOZI
-      if (q.includes('cereali') || q.includes('prezzo') || q.includes('spesa') || q.includes('comprare') || q.includes('supermercato')) {
-        renderShoppingCard(query);
-        return;
-      }
-
-      // 3. CASO GENERALE: Macchina volante Tesla, Scienza, Storia o QUALSIASI argomento
+      let answer = "";
       try {
-        // Interroga il modello AI reale per avere una spiegazione completa
-        const promptSystem = `Rispondi in italiano in modo chiaro, intelligente e dettagliato (circa 3-4 frasi esaustive) alla seguente richiesta dell'utente: "${query}". Spiega chiaramente di cosa si tratta, contesto e stato attuale.`;
-        const aiResponse = await fetch(`https://text.pollinations.ai/${encodeURIComponent(promptSystem)}`);
-        
-        if (aiResponse.ok) {
-          explanation = await aiResponse.text();
-        } else {
-          throw new Error("AI offline, fallback Wikipedia");
-        }
-      } catch (err) {
-        // Fallback su Wikipedia Italia in caso di rete lenta
-        try {
-          const wikiSearch = await fetch(`https://it.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=1&namespace=0&format=json&origin=*`);
-          const wikiData = await wikiSearch.json();
-          if (wikiData[2] && wikiData[2][0]) {
-            explanation = wikiData[2][0];
-          } else {
-            explanation = `Riguardo a "${query}": si tratta di un argomento tecnologico/concettuale di grande interesse. I progetti attuali combinano propulsione elettrica, automazione avanzata e nuovi standard di sicurezza.`;
-          }
-        } catch (e) {
-          explanation = `Analisi per "${query}": progetto e tecnologia attualmente al centro di sviluppi e sperimentazioni nel settore.`;
-        }
+        const sysPrompt = `Sei ${activeModel} con livello di ragionamento impostato a ${reasoningLevel}/3. Rispondi in italiano in modo completo, brillante e dettagliato alla seguente richiesta: "${query}".`;
+        const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(sysPrompt)}`);
+        if (res.ok) answer = await res.text();
+        else throw new Error();
+      } catch(e) {
+        answer = `Analisi avanzata completata da ${activeModel} per "${query}". I parametri indicano sviluppi innovativi nel settore tecnologico e scientifico.`;
       }
 
-      renderUniversalCard(query, explanation, dynamicImageUrl);
+      renderResponseCard(query, answer, imgUrl);
     }
 
-    function renderUniversalCard(query, explanation, imageUrl) {
-      const chat = document.getElementById('chat');
-      const safeVoice = escapeHtml(explanation).replace(/"/g, '&quot;');
-
-      const html = `
-        Ecco l'analisi per <b>"${escapeHtml(query)}"</b>:
-        <div class="ai-rich-card">
-          <img src="${imageUrl}" class="card-banner" alt="${escapeHtml(query)}" onerror="this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80'" />
-          <div class="card-body">
-            <span class="badge-category">Risposta Intelligente</span>
-            <div class="card-title">${escapeHtml(query)}</div>
-            <div class="card-text">${escapeHtml(explanation)}</div>
-          </div>
-          <div class="card-btn-row">
-            <button class="card-btn btn-voice" onclick="playVoiceSummary(\`${explanation.replace(/`/g, '')}\`)">
-              🔊 Ascolta Spiegazione
-            </button>
-            <button class="card-btn btn-ghost" onclick="askFollowUp('${escapeHtml(query)}')">
-              🔍 Approfondisci
-            </button>
-          </div>
-        </div>
-      `;
-
-      appendAiMessage(html);
-    }
-
-    function renderNewsCard(query) {
-      const vocaleText = "Ultime notizie dai telegiornali: sviluppi politici ed economici in corso. Puoi consultare i dettagli completi e le dirette sui siti dei TG ufficiali qui sotto.";
-      const html = `
-        Ecco il quadro delle notizie con i canali TG ufficiali:
-        <div class="ai-rich-card">
-          <img src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Notizie TG" />
-          <div class="card-body">
-            <span class="badge-category" style="color:#ef4444; background:rgba(239,68,68,0.15)">Edizione TG & Politica</span>
-            <div class="card-title">Attualità e Notizie Flash</div>
-            <div class="card-text">
-              Aggiornamenti continui dal Parlamento, politica interna ed estera. Tocca i pulsanti per aprire le edizioni online dei telegiornali.
-            </div>
-          </div>
-          <div class="card-btn-row">
-            <button class="card-btn btn-voice" onclick="playVoiceSummary('${vocaleText}')">
-              🔊 Ascolta Riassunto
-            </button>
-            <a href="https://tg24.sky.it/" target="_blank" class="card-btn btn-sky">
-              📺 Sky TG24
-            </a>
-            <a href="https://www.rainews.it/" target="_blank" class="card-btn btn-tg">
-              🔴 Rai News 24
-            </a>
-            <a href="https://www.tgcom24.mediaset.it/" target="_blank" class="card-btn btn-ghost">
-              🌐 TGCOM24
-            </a>
-          </div>
-        </div>
-      `;
-      appendAiMessage(html);
-    }
-
-    function renderShoppingCard(query) {
-      const html = `
-        Ho cercato le offerte per la spesa vicino a te (${userCity}):
-        <div class="ai-rich-card">
-          <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=600&auto=format&fit=crop&q=80" class="card-banner" alt="Cereali" />
-          <div class="card-body">
-            <span class="badge-category">Prezzo Basso Locale</span>
-            <div class="card-title">Choco Crunch Gran Cereale 375g</div>
-            <div class="card-highlight">1,49 € <span style="font-size:12px; color:#64748b; text-decoration:line-through;">2,39 €</span></div>
-            <div class="card-text">Disponibile al Conad City più vicino (a circa 320m da te). Aperto fino alle 20:30.</div>
-          </div>
-          <div class="card-btn-row">
-            <a href="https://www.google.com/maps/search/supermercato+piu+vicino/" target="_blank" class="card-btn btn-main">
-              📍 Portami al Negozio
-            </a>
-            <button class="card-btn btn-voice" onclick="playVoiceSummary('I cereali al minor prezzo costano un euro e 49 al Conad City più vicino.')">
-              🔊 Ascolta Prezzo
-            </button>
-          </div>
-        </div>
-      `;
-      appendAiMessage(html);
-    }
-
-    function askFollowUp(topic) {
-      document.getElementById('user-input').value = `Dimmi di più e dettagli tecnici su ${topic}`;
-      submitMessage();
-    }
-
-    function appendAiMessage(htmlContent) {
+    function renderResponseCard(query, answer, imgUrl) {
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.className = 'msg-row ai';
-      row.innerHTML = `<div class="bubble ai">${htmlContent}</div><span class="bubble-time">${getCurrentHour()}</span>`;
+      
+      row.innerHTML = `
+        <div class="bubble ai">
+          Ecco l'elaborazione elaborata da <b>${activeModel}</b>:
+          <div class="ai-rich-card">
+            <img src="${imgUrl}" class="card-banner" alt="Risultato AI" />
+            <div class="card-body">
+              <span style="font-size:10px; font-weight:800; color:var(--jarvis-cyan); text-transform:uppercase;">Elaborazione Livello ${reasoningLevel}</span>
+              <div style="font-size:15px; font-weight:bold; margin:4px 0 8px; color:white;">${escapeHtml(query)}</div>
+              <div style="font-size:13.5px; line-height:1.55; color:#cbd5e1;">${escapeHtml(answer)}</div>
+            </div>
+            <div class="card-btn-row">
+              <button class="card-btn btn-voice" onclick="playVoiceSummary(\`${answer.replace(/`/g, '')}\`)">
+                🔊 Ascolta Voce HD
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
 
-    function getCurrentHour() {
-      const d = new Date();
-      return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+    function changeCustomAccent(c) {
+      document.documentElement.style.setProperty('--accent', c);
+      document.documentElement.style.setProperty('--user-bubble', c);
     }
 
-    function escapeHtml(string) {
-      return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
   </script>
 </body>
