@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Omni AI - Assistente Intelligente</title>
+  <style>
+    :root {
+      --wa-header: #075e54;
+      --wa-header-dark: #128c7e;
+      --wa-bg: #efeae2;
+      --wa-user-bubble: #d9fdd3;
+      --wa-ai-bubble: #ffffff;
+      --wa-text: #111b21;
+      --wa-subtext: #667781;
+      --accent-blue: #008069;
+      --badge-discount: #e53935;
+      --border-color: #e2e8f0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #d1d7db;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Finestra App (Stile telefono su Desktop, full screen su Mobile) */
+    .app-container {
+      width: 100%;
+      max-width: 440px;
+      height: 100vh;
+      background: var(--wa-bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+
+    @media (min-width: 600px) {
+      .app-container {
+        height: 92vh;
+        border-radius: 24px;
+        overflow: hidden;
+      }
+    }
+
+    /* Header */
+    .header {
+      background-color: var(--wa-header);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: white;
+      font-weight: bold;
+    }
+
+    .user-info h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .user-info p {
+      font-size: 12px;
+      color: #e0f2f1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      background-color: #25d366;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .gps-tag {
+      font-size: 11px;
+      background: rgba(255,255,255,0.2);
+      padding: 4px 8px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Chat Body */
+    .chat-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background-image: radial-gradient(#d3cbbe 1px, transparent 1px);
+      background-size: 16px 16px;
+    }
+
+    /* Fumetti base */
+    .msg {
+      max-width: 88%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 14.5px;
+      line-height: 1.4;
+      position: relative;
+      word-wrap: break-word;
+      box-shadow: 0 1px 1.5px rgba(0,0,0,0.12);
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--wa-user-bubble);
+      color: var(--wa-text);
+      border-top-right-radius: 2px;
+    }
+
+    .msg.ai {
+      align-self: flex-start;
+      background: var(--wa-ai-bubble);
+      color: var(--wa-text);
+      border-top-left-radius: 2px;
+      width: 100%;
+      max-width: 380px;
+      padding: 12px;
+    }
+
+    .msg-time {
+      font-size: 10px;
+      color: var(--wa-subtext);
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    /* SCHEDE INTERATTIVE (CARDS) */
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .card-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+
+    .badge-price {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .badge-news {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .product-row {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .product-img {
+      width: 85px;
+      height: 85px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+
+    .product-details {
+      flex: 1;
+    }
+
+    .product-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #222;
+    }
+
+    .product-price {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent-blue);
+      margin: 4px 0;
+    }
+
+    .old-price {
+      text-decoration: line-through;
+      color: #999;
+      font-size: 13px;
+      font-weight: normal;
+      margin-left: 6px;
+    }
+
+    /* Sezione Negozio */
+    .store-section {
+      background: #f8fafc;
+      padding: 10px;
+      border-top: 1px dashed var(--border-color);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .store-img {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .store-info h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #333;
+    }
+
+    .store-info p {
+      font-size: 12px;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    /* Sezione Notizia */
+    .news-cover {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+    }
+
+    .news-content {
+      padding: 12px;
+    }
+
+    .news-title {
+      font-size: 15px;
+      font-weight: bold;
+      color: #111;
+      margin-bottom: 6px;
+    }
+
+    .news-points {
+      font-size: 13px;
+      color: #444;
+      padding-left: 18px;
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+
+    .sources-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .source-chip {
+      font-size: 10px;
+      font-weight: 600;
+      background: #edf2f7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #4a5568;
+    }
+
+    /* Pulsanti d'Azione nelle Schede */
+    .card-actions {
+      padding: 8px 10px;
+      background: #ffffff;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-primary:active {
+      background: #006954;
+    }
+
+    .btn-secondary {
+      background: #edf2f7;
+      color: #2d3748;
+    }
+
+    /* Quick Chips (Suggerimenti) */
+    .chips-bar {
+      padding: 8px 12px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      background: #efeae2;
+      scrollbar-width: none;
+    }
+
+    .chips-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .chip {
+      background: white;
+      border: 1px solid #d1d5db;
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 12.5px;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    /* Input Footer */
+    .footer {
+      background: #f0f2f5;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-box {
+      flex: 1;
+      background: white;
+      border: none;
+      border-radius: 20px;
+      padding: 10px 16px;
+      font-size: 14.5px;
+      outline: none;
+    }
+
+    .btn-send {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      color: white;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    /* Loader Digitazione */
+    .typing {
+      font-style: italic;
+      color: var(--wa-subtext);
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="avatar">⚡</div>
+        <div class="user-info">
+          <h1>Omni AI Concierge</h1>
+          <p><span class="pulse"></span> Online & Pronto</p>
+        </div>
+      </div>
+      <div class="gps-tag">
+        📍 <span>Roma (Centro)</span>
+      </div>
+    </header>
+
+    <!-- Chat Body -->
+    <main class="chat-body" id="chat">
+      <!-- Messaggio iniziale di benvenuto -->
+      <div class="msg ai">
+        Ciao! Sono il tuo assistente tuttofare. 🔍 
+        <br><br>
+        Chiedimi pure la spesa più conveniente vicino a te, cosa sta accadendo nel mondo o qualsiasi altra curiosità!
+        <div class="msg-time">Adesso</div>
+      </div>
+    </main>
+
+    <!-- Stato di caricamento animato -->
+    <div class="typing" id="typing-indicator">
+      <span>Omni sta cercando offerte e informazioni...</span>
+    </div>
+
+    <!-- Quick Chips per test rapido -->
+    <div class="chips-bar">
+      <button class="chip" onclick="quickQuery('cereali')">🥣 Cereali economici</button>
+      <button class="chip" onclick="quickQuery('politica')">🏛️ Cosa succede in politica?</button>
+    </div>
+
+    <!-- Barra Inserimento Messaggio -->
+    <footer class="footer">
+      <input type="text" id="userInput" class="input-box" placeholder="Scrivi un messaggio..." onkeydown="handleKey(event)" />
+      <button class="btn-send" onclick="sendMessage()">➤</button>
+    </footer>
+  </div>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('userInput');
+    const typingIndicator = document.getElementById('typing-indicator');
+
+    function handleKey(e) {
+      if (e.key === 'Enter') sendMessage();
+    }
+
+    function quickQuery(type) {
+      if (type === 'cereali') {
+        input.value = "Mi servirebbero dei cereali per la mattina a prezzo basso";
+      } else if (type === 'politica') {
+        input.value = "Cosa sta succedendo nella politica oggi?";
+      }
+      sendMessage();
+    }
+
+    function getCurrentTime() {
+      const d = new Date();
+      return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+    }
+
+    function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      // 1. Aggiungi fumetto utente
+      appendUserMessage(text);
+      input.value = "";
+
+      // 2. Mostra animazione caricamento
+      typingIndicator.style.display = "flex";
+      chat.scrollTop = chat.scrollHeight;
+
+      // 3. Simula elaborazione AI (1.5 secondi)
+      setTimeout(() => {
+        typingIndicator.style.display = "none";
+        generateAiResponse(text.toLowerCase());
+      }, 1400);
+    }
+
+    function appendUserMessage(text) {
+      const msg = document.createElement('div');
+      msg.className = 'msg user';
+      msg.innerHTML = `${text} <div class="msg-time">${getCurrentTime()}</div>`;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function generateAiResponse(text) {
+      const msg = document.createElement('div');
+      msg.className = 'msg ai';
+
+      // Logica dimostrativa per mostrare la card corretta
+      if (text.includes('cereali') || text.includes('spesa') || text.includes('prezzo')) {
+        msg.innerHTML = `
+          Ho trovato l'opzione più conveniente confrontando i volantini della tua zona:
+          
+          <div class="card">
+            <div style="padding: 10px 10px 0;">
+              <span class="card-badge badge-price">Miglior Offerta • Risparmi 35%</span>
+            </div>
+            
+            <!-- Prodotto -->
+            <div class="product-row">
+              <img src="https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=300&auto=format&fit=crop&q=80" class="product-img" alt="Cereali" />
+              <div class="product-details">
+                <div class="product-name">Choco Crunch Avena 375g</div>
+                <div class="product-price">1,49 € <span class="old-price">2,29 €</span></div>
+                <div style="font-size: 11.5px; color: #555;">Marca: Smart Valley (In offerta fino a domenica)</div>
+              </div>
+            </div>
+
+            <!-- Negozio & Distanza -->
+            <div class="store-section">
+              <img src="https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=150&auto=format&fit=crop&q=80" class="store-img" alt="Negozio" />
+              <div class="store-info">
+                <h4>Conad City</h4>
+                <p>📍 Via Nazionale 42 (a 350m - 4 min a piedi)</p>
+                <p>🕒 Aperto fino alle 20:30</p>
+              </div>
+            </div>
+
+            <!-- Azioni Rapide -->
+            <div class="card-actions">
+              <a href="https://maps.google.com" target="_blank" class="btn btn-primary">
+                📍 Portami qui
+              </a>
+              <button class="btn btn-secondary" onclick="alert('Ricerca di alternative più salutari o senza zuccheri in corso...')">
+                🔄 Alternative
+              </button>
+            </div>
+          </div>
+
+          <div class="msg-time">${getCurrentTime()}</div>
+        `;
+      } 
+      else if (text.includes('politica') || text.includes('governo') || text.includes('notizie')) {
+        msg.innerHTML = `
+          Ecco il quadro sintetico aggiornato all'ultima ora:
+
+          <div class="card">
+            <img src="https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=600&auto=format&fit=crop&q=80" class="news-cover" alt="Parlamento" />
+            
+            <div class="news-content">
+              <span class="card-badge badge-news">Attualità Nazionale</span>
+              <div class="news-title">Nuova manovra economica: via libera in commissione</div>
+              
+              <ul class="news-points">
+                <li><b>Cuneo fiscale:</b> Confermato il taglio per i redditi medio-bassi.</li>
+                <li><b>Lavoro giovanile:</b> Nuovi incentivi per contratti stabili.</li>
+                <li><b>Opposizioni:</b> Annunciati emendamenti su sanità e trasporti.</li>
+              </ul>
+
+              <div class="sources-row">
+                <span class="source-chip">ANSA</span>
+                <span class="source-chip">Corriere</span>
+                <span class="source-chip">Sole 24 Ore</span>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <button class="btn btn-primary" onclick="alert('Riproduzione audio del riassunto...')">
+                🎙️ Ascolta riassunto (30s)
+              </button>
+              <button class="btn btn-secondary" onclick="alert('Cosa vorresti approfondire di questo tema?')">
+                ❓ Approfondisci
+              </button>
+            </div>
+          </div>
+
+          <div class="msg-time">${getCurrentTime()}</div>
+        `;
+      } 
+      else {
+        msg.innerHTML = `
+          Ho compreso la tua richiesta: <i>"${text}"</i>.<br><br>
+          Posso cercarti qualsiasi informazione locale, prodotto in sconto con foto e navigazione, oppure riassunti sull'attualità. Prova a premere uno dei suggerimenti qui sotto!
+          <div class="msg-time">${getCurrentTime()}</div>
+        `;
+      }
+
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+  </script>
+</body>
+</html>
